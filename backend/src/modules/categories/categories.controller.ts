@@ -35,54 +35,92 @@ export const getCategory = async (req: Request<{ id: string }>, res: Response, n
 };
 
 export const createCategory = async (
-  req: Request<object, object, CreateCategoryInput>,
-  res: Response,
-  next: NextFunction
+	req: Request<object, object, CreateCategoryInput>,
+	res: Response,
+	next: NextFunction
 ): Promise<void> => {
-  try {
-    const { name, description, order, isActive } = req.body;
+	try {
+		const { name, isActive } = req.body;
 
-    const category = await prisma.category.create({
-      data: {
-        name,
-        description,
-        order: order ?? 0,
-        isActive: isActive ?? true,
-      },
-    });
+		// Auto-calculate order: get max order + 1
+		const maxOrderCategory = await prisma.category.findFirst({
+			orderBy: { order: "desc" },
+			select: { order: true },
+		});
+		const nextOrder = (maxOrderCategory?.order ?? 0) + 1;
 
-    sendCreated(res, category, 'Category created successfully');
-  } catch (error) {
-    next(error);
-  }
+		const category = await prisma.category.create({
+			data: {
+				name,
+				order: nextOrder,
+				isActive: isActive ?? true,
+			},
+		});
+
+		sendCreated(res, category, "Category created successfully");
+	} catch (error) {
+		next(error);
+	}
 };
 
 export const updateCategory = async (
-  req: Request<{ id: string }, object, UpdateCategoryInput>,
-  res: Response,
-  next: NextFunction
+	req: Request<{ id: string }, object, UpdateCategoryInput>,
+	res: Response,
+	next: NextFunction
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
+	try {
+		const { id } = req.params;
+		const { name, isActive } = req.body;
 
-    const existingCategory = await prisma.category.findUnique({
-      where: { id },
-    });
+		const existingCategory = await prisma.category.findUnique({
+			where: { id },
+		});
 
-    if (!existingCategory) {
-      throw new AppError('Category not found', 404);
-    }
+		if (!existingCategory) {
+			throw new AppError("Category not found", 404);
+		}
 
-    const category = await prisma.category.update({
-      where: { id },
-      data: updateData,
-    });
+		const category = await prisma.category.update({
+			where: { id },
+			data: {
+				...(name !== undefined && { name }),
+				...(isActive !== undefined && { isActive }),
+			},
+		});
 
-    sendSuccess(res, category, 'Category updated successfully');
-  } catch (error) {
-    next(error);
-  }
+		sendSuccess(res, category, "Category updated successfully");
+	} catch (error) {
+		next(error);
+	}
+};
+
+// Reorder categories via drag and drop
+export const reorderCategories = async (
+	req: Request<object, object, { orderedIds: string[] }>,
+	res: Response,
+	next: NextFunction
+): Promise<void> => {
+	try {
+		const { orderedIds } = req.body;
+
+		// Update each category's order based on its position in the array
+		await prisma.$transaction(
+			orderedIds.map((id, index) =>
+				prisma.category.update({
+					where: { id },
+					data: { order: index + 1 },
+				})
+			)
+		);
+
+		const categories = await prisma.category.findMany({
+			orderBy: { order: "asc" },
+		});
+
+		sendSuccess(res, categories, "Categories reordered successfully");
+	} catch (error) {
+		next(error);
+	}
 };
 
 export const deleteCategory = async (

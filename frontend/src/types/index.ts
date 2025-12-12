@@ -20,13 +20,12 @@ export interface LoginResponse {
 
 // Category types
 export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  order: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+	id: string;
+	name: string;
+	order: number;
+	isActive: boolean;
+	createdAt: string;
+	updatedAt: string;
 }
 
 // API Response types

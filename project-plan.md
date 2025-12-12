@@ -24,11 +24,6 @@ Pages:
 •	Confirmation Page
 •	Success Page
  
-
-
-
-
-
 2.2 Admin Dashboard
 Main Responsibilities:
 •	Login & Authentication

@@ -1,23 +1,24 @@
 import { z } from 'zod';
 
 export const createCategorySchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
-  order: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
+	name: z.string().min(1, "Name is required"),
+	isActive: z.boolean().optional(),
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
-  description: z.string().optional(),
-  order: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
+	name: z.string().min(1, "Name is required").optional(),
+	isActive: z.boolean().optional(),
+});
+
+export const reorderCategoriesSchema = z.object({
+	orderedIds: z.array(z.string().uuid("Invalid category ID")).min(1, "At least one category ID is required"),
 });
 
 export const categoryIdSchema = z.object({
-  id: z.string().uuid('Invalid category ID'),
+	id: z.string().uuid("Invalid category ID"),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+export type ReorderCategoriesInput = z.infer<typeof reorderCategoriesSchema>;
 
