@@ -1,0 +1,293 @@
+import { createRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { rootRoute } from "../__root";
+import { clientCategoriesApi, clientConfigApi, clientTicketsApi, type ClientCategory } from "../../api/client";
+import { CountdownDialog, BubbleBackground, TicketScanDialog, PromoVideoModal, animationStyles } from "../../components/client";
+import { useVoterStore } from "../../stores/voter.store";
+import ucsmLogo from "../../assets/ucsm.png";
+
+function ClientHomePage() {
+	const navigate = useNavigate();
+	const search = useSearch({ from: "/" });
+	const ticketParam = (search as { ticket?: string }).ticket;
+	
+	const [showCountdown, setShowCountdown] = useState(true);
+	// Only show promo video if not seen before (check localStorage)
+	const [showPromoVideo, setShowPromoVideo] = useState(() => {
+		return !localStorage.getItem("promo-video-seen");
+	});
+	const [authError, setAuthError] = useState<string | null>(null);
+	const hasAttemptedAuth = useRef(false);
+	
+	const { isAuthenticated, setAuth } = useVoterStore();
+	
+	// Show scan dialog if not authenticated (and no URL param being processed)
+	const [showScanDialog, setShowScanDialog] = useState(() => !isAuthenticated && !ticketParam);
+
+	// Ticket authentication mutation
+	const authenticateTicket = useMutation({
+		mutationFn: clientTicketsApi.authenticate,
+		onSuccess: (data) => {
+			setAuth(data.token, data.ticket);
+			setAuthError(null);
+			setShowScanDialog(false);
+			// Remove ticket param from URL after successful auth
+			navigate({ to: "/", search: { ticket: undefined }, replace: true });
+		},
+		onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+			setAuthError(error.response?.data?.message || "Invalid ticket. Please check your ticket and try again.");
+		},
+	});
+
+	// Handle ticket authentication on mount (from URL param)
+	useEffect(() => {
+		if (ticketParam && !isAuthenticated && !hasAttemptedAuth.current) {
+			hasAttemptedAuth.current = true;
+			authenticateTicket.mutate(ticketParam);
+		}
+	}, [ticketParam, isAuthenticated, authenticateTicket]);
+
+	// Handle scan success from dialog
+	const handleScanSuccess = useCallback((ticketId: string) => {
+		setAuthError(null);
+		authenticateTicket.mutate(ticketId);
+	}, [authenticateTicket]);
+
+	const {
+		data: categories,
+		isLoading,
+		error,
+	} = useQuery({
+		queryKey: ["client-categories"],
+		queryFn: clientCategoriesApi.getAll,
+	});
+
+	const { data: config } = useQuery({
+		queryKey: ["client-config"],
+		queryFn: clientConfigApi.getConfig,
+	});
+
+	const handleCountdownEnd = useCallback(() => {
+		setShowCountdown(false);
+	}, []);
+
+	// Check if voting is enabled or event has started
+	const isVotingEnabled = config?.votingEnabled || config?.isEventStarted;
+	
+	// Determine if dialog should be shown
+	const shouldShowDialog = config && showCountdown && !isVotingEnabled;
+	
+	// Animations should only start after dialog is closed
+	const animationsEnabled = !shouldShowDialog;
+
+	// Initial load handled by HTML loader
+	if (isLoading || authenticateTicket.isPending) {
+		return null;
+	}
+
+	return (
+		<div className="min-h-screen bg-linear-to-br from-white via-purple-50 to-violet-100 relative overflow-hidden flex justify-center">
+			{/* Inject custom animations */}
+			<style>{animationStyles}</style>
+
+			{/* Ticket Scan Dialog - Show when not authenticated */}
+			{showScanDialog && !isAuthenticated && (
+				<TicketScanDialog
+					onScanSuccess={handleScanSuccess}
+					onClose={() => setShowScanDialog(false)}
+					isAuthenticating={authenticateTicket.isPending}
+					authError={authError}
+				/>
+			)}
+
+			{/* Promo Video Modal - Show only on first visit if video exists */}
+			{showPromoVideo && config?.promoVideoUrl && (
+				<PromoVideoModal
+					videoUrl={config.promoVideoUrl}
+					onClose={() => {
+						localStorage.setItem("promo-video-seen", "true");
+						setShowPromoVideo(false);
+					}}
+				/>
+			)}
+
+			{/* Countdown Dialog */}
+			{shouldShowDialog && !showPromoVideo && (
+				<CountdownDialog
+					targetTime={config.eventStartTime}
+					onCountdownEnd={handleCountdownEnd}
+					onClose={() => setShowCountdown(false)}
+				/>
+			)}
+			
+			{/* Animated Bubbles Background */}
+			<BubbleBackground animated={animationsEnabled} />
+			
+			{/* Content - Fixed mobile width */}
+			<div className="relative z-10 w-full max-w-[430px] px-5 py-4">
+				{/* Scan Ticket Button - Show when not authenticated and dialog is closed */}
+				{!isAuthenticated && !showScanDialog && (
+					<button
+						onClick={() => setShowScanDialog(true)}
+						className="mb-4 w-full p-3 bg-linear-to-r from-purple-600 to-violet-600 text-white rounded-xl shadow-lg shadow-purple-500/30 hover:from-purple-700 hover:to-violet-700 transition-all active:scale-[0.98]"
+					>
+						<div className="flex items-center justify-center gap-2">
+							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+							</svg>
+							<span className="font-semibold">Scan Ticket to Vote</span>
+						</div>
+					</button>
+				)}
+
+				{/* Header with animations */}
+				<header className="text-center mb-8">
+					{/* Animated Logo */}
+					<div className={`mb-2 ${animationsEnabled ? 'animate-scale-in' : ''}`} style={{ opacity: animationsEnabled ? undefined : 1 }}>
+						<div className="w-20 h-20 mx-auto rounded-full p-2.5 relative">
+							<div className="absolute inset-0 rounded-full" />
+							<img 
+								src={ucsmLogo} 
+								alt="UCSM Logo" 
+								className="w-full h-full object-contain relative z-10 drop-shadow-lg"
+							/>
+						</div>
+					</div>
+					{/* Animated title */}
+					<h1 
+						className={`text-2xl font-bold text-purple-900 mb-3 uppercase ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
+						style={{ animationDelay: '0.2s', opacity: animationsEnabled ? 0 : 1 }}
+					>
+						UCSM Fresher Welcome
+					</h1>
+					{/* Animated year badge */}
+					<div 
+						className={`flex items-center justify-center gap-3 mb-2 ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
+						style={{ animationDelay: '0.4s', opacity: animationsEnabled ? 0 : 1 }}
+					>
+						<div className="h-1 w-12 bg-linear-to-r from-transparent to-purple-300" />
+						<span className="text-lg font-bold tracking-[0.2em] text-purple-600 relative">
+							2025 - 2026
+							<span className={`absolute inset-0 rounded ${animationsEnabled ? 'animate-shimmer' : ''}`} />
+						</span>
+						<div className="h-1 w-12 bg-linear-to-l from-transparent to-purple-300" />
+					</div>
+				</header>
+
+				{/* Error State */}
+				{error && (
+					<div className="text-center py-6">
+						<p className="text-purple-600/60 text-sm">
+							Unable to load categories. Please refresh the page.
+						</p>
+					</div>
+				)}
+
+				{/* Categories Grid */}
+				{categories && categories.length > 0 && (
+					<div className="grid grid-cols-2 gap-2.5">
+						{categories.map((category, index) => (
+							<CategoryCard key={category.id} category={category} index={index} animationsEnabled={animationsEnabled} />
+						))}
+					</div>
+				)}
+
+				{/* Watch Promo Video Button */}
+				{config?.promoVideoUrl && !showPromoVideo && (
+					<button
+						onClick={() => setShowPromoVideo(true)}
+						className={`mt-4 w-full p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-md shadow-purple-100/50 border border-purple-100 hover:bg-white hover:shadow-lg hover:shadow-purple-200/50 transition-all active:scale-[0.98] ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
+						style={{ animationDelay: '0.8s', opacity: animationsEnabled ? 0 : 1 }}
+					>
+						<div className="flex items-center justify-center gap-2 text-purple-700">
+							<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+								<path d="M8 5v14l11-7z" />
+							</svg>
+							<span className="font-semibold text-sm">Watch Promo Video</span>
+						</div>
+					</button>
+				)}
+
+				{/* Empty State */}
+				{categories && categories.length === 0 && (
+					<div className="text-center py-8">
+						<p className="text-purple-600/60 text-sm mb-1">No categories available</p>
+						<p className="text-purple-400 text-xs">Check back soon</p>
+					</div>
+				)}
+
+				{/* Footer */}
+				<footer className="mt-6 text-center">
+					<p className="text-purple-400 text-[10px] tracking-wide">
+						© 2026 UCSM Fresher Welcome Committee
+					</p>
+				</footer>
+			</div>
+		</div>
+	);
+}
+
+function CategoryCard({ category, index, animationsEnabled }: { category: ClientCategory; index: number; animationsEnabled: boolean }) {
+	const navigate = useNavigate();
+
+	const handleClick = () => {
+		navigate({ to: `/category/${category.id}` });
+	};
+
+	return (
+		<button
+			onClick={handleClick}
+			className={`group relative cursor-pointer bg-white rounded-2xl p-3 shadow-lg shadow-purple-100/50 transition-all duration-300 active:scale-[0.95] hover:shadow-2xl hover:shadow-purple-300/40 hover:-translate-y-1 ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
+			style={{ 
+				animationDelay: `${0.5 + index * 0.1}s`,
+				opacity: animationsEnabled ? 0 : 1,
+			}}
+		>
+			
+			{/* Content wrapper */}
+			<div className="relative">
+				{/* Icon container with gradient background */}
+				<div className="relative w-full h-20 rounded-xl bg-linear-to-br from-purple-100 via-violet-50 to-fuchsia-100 mb-2 flex items-center justify-center overflow-hidden group-hover:from-purple-200 group-hover:via-violet-100 group-hover:to-fuchsia-200 transition-all duration-300">
+					{/* Animated decorative circles */}
+					<div className="absolute -top-3 -right-3 w-10 h-10 bg-purple-200/50 rounded-full group-hover:scale-150 group-hover:bg-purple-300/60 transition-all duration-500" />
+					<div className="absolute -bottom-2 -left-2 w-8 h-8 bg-violet-200/50 rounded-full group-hover:scale-150 group-hover:bg-violet-300/60 transition-all duration-500 delay-75" />
+					<div className="absolute top-1/2 -right-1 w-4 h-4 bg-fuchsia-200/40 rounded-full opacity-0 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300 delay-150" />
+					<div className="absolute -top-1 left-1/3 w-3 h-3 bg-purple-300/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-400 delay-200" />
+					
+					{/* Icon with hover animation */}
+					{category.icon ? (
+						<img
+							src={category.icon}
+							alt={category.name}
+							className="w-12 h-12 rounded-xl object-cover shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 transition-all duration-300"
+						/>
+					) : (
+						<div className="w-12 h-12 rounded-xl bg-linear-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:from-purple-600 group-hover:to-violet-700 group-hover:rotate-3 transition-all duration-300">
+							<span className="text-lg font-bold text-white group-hover:scale-110 transition-transform duration-300">
+								{category.name.charAt(0).toUpperCase()}
+							</span>
+						</div>
+					)}
+				</div>
+
+				{/* Category Name with hover effect */}
+				<h3 className="text-xs font-bold text-gray-800 line-clamp-1 text-center group-hover:text-purple-700 transition-colors duration-200">
+					{category.name}
+				</h3>
+			</div>
+		</button>
+	);
+}
+
+export const Route = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/",
+	component: ClientHomePage,
+	validateSearch: (search: Record<string, unknown>) => {
+		return {
+			ticket: typeof search.ticket === 'string' ? search.ticket : undefined,
+		};
+	},
+});
+

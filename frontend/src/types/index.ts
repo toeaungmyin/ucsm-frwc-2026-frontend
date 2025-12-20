@@ -22,22 +22,43 @@ export interface LoginResponse {
 export interface Category {
 	id: string;
 	name: string;
+	icon: string | null;
 	order: number;
 	isActive: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
 
+// Candidate types
+export interface Candidate {
+	id: string;
+	nomineeId: string;
+	name: string;
+	categoryId: string;
+	category: {
+		id: string;
+		name: string;
+	};
+	image: string | null;
+	createdAt: string;
+}
+
+// Ticket types
+export interface Ticket {
+	id: string;
+	serial: string;
+	createdAt: string;
+}
+
 // API Response types
 export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
+	success: boolean;
+	data: T;
+	message?: string;
 }
 
 export interface ApiError {
-  success: boolean;
-  message: string;
-  errors?: Array<{ field: string; message: string }>;
+	success: boolean;
+	message: string;
+	errors?: Array<{ field: string; message: string }>;
 }
-

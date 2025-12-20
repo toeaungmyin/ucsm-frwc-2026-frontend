@@ -19,6 +19,7 @@ model Admin {
 model Category {
   id          String      @id @default(uuid())
   name        String      @unique
+  icon        String?
   order       Int         @default(0)
   isActive    Boolean     @default(true) @map("is_active")
   createdAt   DateTime    @default(now()) @map("created_at")
@@ -38,9 +39,12 @@ model Candidate {
   image      String?
   votes      Vote[]
   createdAt  DateTime @default(now())
+
+  // Index for faster category-based queries
+  @@index([categoryId])
 }
 
-model Voter {
+model Ticket {
   id             String   @id @default(uuid())
   serial         String   @unique
   votes          Vote[]
@@ -50,13 +54,32 @@ model Voter {
 
 model Vote {
   id          String       @id @default(uuid())
-  voterId     String
+  ticketId    String
   candidateId String
   categoryId  String
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  voter       Voter     @relation(fields: [voterId], references: [id] , onDelete: Cascade)
+  ticket      Ticket    @relation(fields: [ticketId], references: [id] , onDelete: Cascade)
   candidate   Candidate @relation(fields: [candidateId], references: [id] , onDelete: Cascade)
   createdAt   DateTime  @default(now())
-  // @@unique([voterId, candidateId]) // Ensures one vote per voter per candidate for each category
-  @@unique([voterId, categoryId]) // Ensures one vote per voter per candidate for each category
+
+  // Ensures one vote per voter per category
+  @@unique([ticketId, categoryId])
+  
+  // Indexes for faster queries on voting statistics
+  @@index([candidateId])
+  @@index([categoryId])
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+// Event settings - singleton table
+model Settings {
+  id              String    @id @default("default")
+  eventName       String    @default("UCSM Fresher Welcome 2026")
+  eventStartTime  DateTime?
+  votingEnabled   Boolean   @default(false) @map("voting_enabled")
+  promoVideo      String?   @map("promo_video") // MinIO object path for promo video
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("settings")
 }

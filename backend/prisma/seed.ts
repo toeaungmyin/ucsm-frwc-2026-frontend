@@ -34,8 +34,10 @@ async function main() {
 		{ name: "QUEEN", order: 2 },
 		{ name: "PRINCE", order: 3 },
 		{ name: "PRINCESS", order: 4 },
-		{ name: "BEST_SINGER", order: 5 },
-		{ name: "BEST_PERFORMANCE", order: 6 },
+		{ name: "THE WHOLE KING", order: 5 },
+		{ name: "THE WHOLE QUEEN", order: 6 },
+		{ name: "BEST SINGER", order: 7 },
+		{ name: "BEST PERFORMANCE", order: 8 },
 	];
 
 	for (const category of categories) {
