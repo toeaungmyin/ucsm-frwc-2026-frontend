@@ -1,14 +1,24 @@
 import { createRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { rootRoute } from "../__root";
 import { clientCategoriesApi, clientConfigApi, clientTicketsApi, type ClientCategory } from "../../api/client";
-import { CountdownDialog, BubbleBackground, TicketScanDialog, PromoVideoModal, animationStyles } from "../../components/client";
+import { 
+	CountdownDialog, 
+	BubbleBackground, 
+	TicketScanDialog, 
+	PromoVideoModal, 
+	animationStyles,
+	CategoriesGridSkeleton,
+	ErrorState,
+	EmptyState,
+} from "../../components/client";
 import { useVoterStore } from "../../stores/voter.store";
 import ucsmLogo from "../../assets/ucsm.png";
 
 function ClientHomePage() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const search = useSearch({ from: "/" });
 	const ticketParam = (search as { ticket?: string }).ticket;
 	
@@ -58,6 +68,7 @@ function ClientHomePage() {
 		data: categories,
 		isLoading,
 		error,
+		refetch,
 	} = useQuery({
 		queryKey: ["client-categories"],
 		queryFn: clientCategoriesApi.getAll,
@@ -72,6 +83,11 @@ function ClientHomePage() {
 		setShowCountdown(false);
 	}, []);
 
+	const handleRetry = useCallback(() => {
+		queryClient.invalidateQueries({ queryKey: ["client-categories"] });
+		refetch();
+	}, [queryClient, refetch]);
+
 	// Check if voting is enabled or event has started
 	const isVotingEnabled = config?.votingEnabled || config?.isEventStarted;
 	
@@ -81,13 +97,11 @@ function ClientHomePage() {
 	// Animations should only start after dialog is closed
 	const animationsEnabled = !shouldShowDialog;
 
-	// Initial load handled by HTML loader
-	if (isLoading || authenticateTicket.isPending) {
-		return null;
-	}
+	// Show skeleton loader while loading (better UX than blank screen)
+	const showSkeleton = isLoading || authenticateTicket.isPending;
 
 	return (
-		<div className="min-h-screen bg-linear-to-br from-white via-purple-50 to-violet-100 relative overflow-hidden flex justify-center">
+		<div className="min-h-screen bg-gradient-to-br from-white via-purple-50 to-violet-100 relative overflow-hidden flex justify-center">
 			{/* Inject custom animations */}
 			<style>{animationStyles}</style>
 
@@ -130,7 +144,7 @@ function ClientHomePage() {
 				{!isAuthenticated && !showScanDialog && (
 					<button
 						onClick={() => setShowScanDialog(true)}
-						className="mb-4 w-full p-3 bg-linear-to-r from-purple-600 to-violet-600 text-white rounded-xl shadow-lg shadow-purple-500/30 hover:from-purple-700 hover:to-violet-700 transition-all active:scale-[0.98]"
+						className="mb-4 w-full p-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl shadow-lg shadow-purple-500/30 hover:from-purple-700 hover:to-violet-700 transition-all active:scale-[0.98] animate-page-enter"
 					>
 						<div className="flex items-center justify-center gap-2">
 							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,27 +180,34 @@ function ClientHomePage() {
 						className={`flex items-center justify-center gap-3 mb-2 ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
 						style={{ animationDelay: '0.4s', opacity: animationsEnabled ? 0 : 1 }}
 					>
-						<div className="h-1 w-12 bg-linear-to-r from-transparent to-purple-300" />
+						<div className="h-1 w-12 bg-gradient-to-r from-transparent to-purple-300" />
 						<span className="text-lg font-bold tracking-[0.2em] text-purple-600 relative">
 							2025 - 2026
 							<span className={`absolute inset-0 rounded ${animationsEnabled ? 'animate-shimmer' : ''}`} />
 						</span>
-						<div className="h-1 w-12 bg-linear-to-l from-transparent to-purple-300" />
+						<div className="h-1 w-12 bg-gradient-to-l from-transparent to-purple-300" />
 					</div>
 				</header>
 
-				{/* Error State */}
-				{error && (
-					<div className="text-center py-6">
-						<p className="text-purple-600/60 text-sm">
-							Unable to load categories. Please refresh the page.
-						</p>
+				{/* Loading State - Skeleton */}
+				{showSkeleton && (
+					<div className="animate-page-enter">
+						<CategoriesGridSkeleton />
 					</div>
 				)}
 
+				{/* Error State */}
+				{error && !showSkeleton && (
+					<ErrorState
+						title="Unable to load categories"
+						message="We couldn't fetch the categories. Please check your connection and try again."
+						onRetry={handleRetry}
+					/>
+				)}
+
 				{/* Categories Grid */}
-				{categories && categories.length > 0 && (
-					<div className="grid grid-cols-2 gap-2.5">
+				{!showSkeleton && !error && categories && categories.length > 0 && (
+					<div className="grid grid-cols-2 gap-2.5 animate-page-enter">
 						{categories.map((category, index) => (
 							<CategoryCard key={category.id} category={category} index={index} animationsEnabled={animationsEnabled} />
 						))}
@@ -210,11 +231,11 @@ function ClientHomePage() {
 				)}
 
 				{/* Empty State */}
-				{categories && categories.length === 0 && (
-					<div className="text-center py-8">
-						<p className="text-purple-600/60 text-sm mb-1">No categories available</p>
-						<p className="text-purple-400 text-xs">Check back soon</p>
-					</div>
+				{!showSkeleton && !error && categories && categories.length === 0 && (
+					<EmptyState
+						title="No categories available"
+						message="Voting categories will appear here soon."
+					/>
 				)}
 
 				{/* Footer */}
@@ -230,17 +251,27 @@ function ClientHomePage() {
 
 function CategoryCard({ category, index, animationsEnabled }: { category: ClientCategory; index: number; animationsEnabled: boolean }) {
 	const navigate = useNavigate();
+	const [isPressed, setIsPressed] = useState(false);
 
 	const handleClick = () => {
-		navigate({ to: `/category/${category.id}` });
+		setIsPressed(true);
+		// Small delay for visual feedback before navigation
+		setTimeout(() => {
+			navigate({ to: `/category/${category.id}` });
+		}, 100);
 	};
 
 	return (
 		<button
 			onClick={handleClick}
-			className={`group relative cursor-pointer bg-white rounded-2xl p-3 shadow-lg shadow-purple-100/50 transition-all duration-300 active:scale-[0.95] hover:shadow-2xl hover:shadow-purple-300/40 hover:-translate-y-1 ${animationsEnabled ? 'animate-fade-in-up' : ''}`}
+			onTouchStart={() => setIsPressed(true)}
+			onTouchEnd={() => setIsPressed(false)}
+			onMouseDown={() => setIsPressed(true)}
+			onMouseUp={() => setIsPressed(false)}
+			onMouseLeave={() => setIsPressed(false)}
+			className={`group relative cursor-pointer bg-white rounded-2xl p-3 shadow-lg shadow-purple-100/50 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-300/40 hover:-translate-y-1 ${animationsEnabled ? 'animate-card-enter' : ''} ${isPressed ? 'scale-[0.96]' : ''}`}
 			style={{ 
-				animationDelay: `${0.5 + index * 0.1}s`,
+				animationDelay: `${0.5 + index * 0.08}s`,
 				opacity: animationsEnabled ? 0 : 1,
 			}}
 		>
@@ -248,7 +279,7 @@ function CategoryCard({ category, index, animationsEnabled }: { category: Client
 			{/* Content wrapper */}
 			<div className="relative">
 				{/* Icon container with gradient background */}
-				<div className="relative w-full h-20 rounded-xl bg-linear-to-br from-purple-100 via-violet-50 to-fuchsia-100 mb-2 flex items-center justify-center overflow-hidden group-hover:from-purple-200 group-hover:via-violet-100 group-hover:to-fuchsia-200 transition-all duration-300">
+				<div className="relative w-full h-20 rounded-xl bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 mb-2 flex items-center justify-center overflow-hidden group-hover:from-purple-200 group-hover:via-violet-100 group-hover:to-fuchsia-200 transition-all duration-300">
 					{/* Animated decorative circles */}
 					<div className="absolute -top-3 -right-3 w-10 h-10 bg-purple-200/50 rounded-full group-hover:scale-150 group-hover:bg-purple-300/60 transition-all duration-500" />
 					<div className="absolute -bottom-2 -left-2 w-8 h-8 bg-violet-200/50 rounded-full group-hover:scale-150 group-hover:bg-violet-300/60 transition-all duration-500 delay-75" />
@@ -263,7 +294,7 @@ function CategoryCard({ category, index, animationsEnabled }: { category: Client
 							className="w-12 h-12 rounded-xl object-cover shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 transition-all duration-300"
 						/>
 					) : (
-						<div className="w-12 h-12 rounded-xl bg-linear-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:from-purple-600 group-hover:to-violet-700 group-hover:rotate-3 transition-all duration-300">
+						<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:from-purple-600 group-hover:to-violet-700 group-hover:rotate-3 transition-all duration-300">
 							<span className="text-lg font-bold text-white group-hover:scale-110 transition-transform duration-300">
 								{category.name.charAt(0).toUpperCase()}
 							</span>
@@ -290,4 +321,3 @@ export const Route = createRoute({
 		};
 	},
 });
-

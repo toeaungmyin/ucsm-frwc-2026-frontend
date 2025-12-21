@@ -32,12 +32,16 @@ const cardStyles = `
 		transform: scale(0) rotate(-15deg);
 		opacity: 0;
 	}
-	50% {
-		transform: scale(1.2) rotate(10deg);
+	40% {
+		transform: scale(1.25) rotate(8deg);
 		opacity: 1;
 	}
-	70% {
-		transform: scale(0.9) rotate(-5deg);
+	60% {
+		transform: scale(0.95) rotate(-3deg);
+		opacity: 1;
+	}
+	80% {
+		transform: scale(1.05) rotate(2deg);
 		opacity: 1;
 	}
 	100% {
@@ -70,6 +74,18 @@ const cardStyles = `
 	60% { transform: translateX(-6px) rotate(-3deg); }
 	80% { transform: translateX(6px) rotate(3deg); }
 }
+@keyframes cardPulse {
+	0%, 100% { box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.3); }
+	50% { box-shadow: 0 20px 50px -10px rgba(139, 92, 246, 0.5); }
+}
+@keyframes votedGlow {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+	50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.3); }
+}
+@keyframes rippleEffect {
+	0% { transform: scale(0); opacity: 0.5; }
+	100% { transform: scale(4); opacity: 0; }
+}
 .glass-shimmer {
 	animation: shimmer 3s ease-in-out infinite;
 }
@@ -77,13 +93,16 @@ const cardStyles = `
 	animation: heartBurst 0.8s ease-out forwards;
 }
 .heart-pop {
-	animation: heartPop 1s ease-out forwards;
+	animation: heartPop 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .heart-break {
 	animation: heartBreak 0.8s ease-out forwards;
 }
 .lock-shake {
 	animation: lockShake 0.5s ease-in-out;
+}
+.card-voted {
+	animation: votedGlow 2s ease-in-out infinite;
 }
 `;
 
@@ -113,9 +132,11 @@ export function CandidateCard({
 	const [showHeart, setShowHeart] = useState(false);
 	const [showBrokenHeart, setShowBrokenHeart] = useState(false);
 	const [showLockShake, setShowLockShake] = useState(false);
+	const [ripplePos, setRipplePos] = useState<{ x: number; y: number } | null>(null);
 	const lastTapRef = useRef<number>(0);
+	const cardRef = useRef<HTMLDivElement>(null);
 
-	const handleDoubleTap = () => {
+	const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
 		// Prevent actions while voting is in progress
 		if (isVoting) return;
 
@@ -123,6 +144,18 @@ export function CandidateCard({
 		const DOUBLE_TAP_DELAY = 300;
 
 		if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+			// Get ripple position
+			if (cardRef.current) {
+				const rect = cardRef.current.getBoundingClientRect();
+				const clientX = 'touches' in e ? e.touches[0]?.clientX ?? rect.left + rect.width / 2 : e.clientX;
+				const clientY = 'touches' in e ? e.touches[0]?.clientY ?? rect.top + rect.height / 2 : e.clientY;
+				setRipplePos({
+					x: clientX - rect.left,
+					y: clientY - rect.top,
+				});
+				setTimeout(() => setRipplePos(null), 600);
+			}
+
 			// Double tap detected - check authentication first
 			if (!isAuthenticated) {
 				// Show lock animation and trigger auth required
@@ -145,7 +178,7 @@ export function CandidateCard({
 			} else if (!hasVotedInCategory) {
 				// Only allow voting if hasn't voted in this category yet
 				setShowHeart(true);
-				setTimeout(() => setShowHeart(false), 1000);
+				setTimeout(() => setShowHeart(false), 1200);
 				
 				if (onVote) {
 					onVote(candidate.id);
@@ -158,7 +191,8 @@ export function CandidateCard({
 
 	return (
 		<div
-			className="group bg-white rounded-3xl shadow-lg shadow-purple-100/50 overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-200/60 animate-fade-in-up p-4"
+			ref={cardRef}
+			className={`group bg-white rounded-3xl shadow-lg shadow-purple-100/50 overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-purple-200/60 animate-card-enter p-4 ${isVoted ? 'card-voted ring-2 ring-red-200' : ''}`}
 			style={{ 
 				animationDelay: `${0.1 + index * 0.08}s`,
 				opacity: 0,
@@ -191,6 +225,18 @@ export function CandidateCard({
 								</span>
 							</div>
 						</div>
+					)}
+
+					{/* Ripple effect on double tap */}
+					{ripplePos && (
+						<div 
+							className="absolute w-16 h-16 bg-white/40 rounded-full pointer-events-none"
+							style={{
+								left: ripplePos.x - 32,
+								top: ripplePos.y - 32,
+								animation: 'rippleEffect 0.6s ease-out forwards',
+							}}
+						/>
 					)}
 					
 					{/* Double tap heart animation - Vote */}
@@ -242,14 +288,14 @@ export function CandidateCard({
 					
 					{/* Double tap hint */}
 					<div className="absolute inset-x-0 bottom-2 flex justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-						<span className="text-[10px] text-white/80 bg-black/30 px-2 py-1 rounded-full backdrop-blur-sm">
+						<span className="text-[10px] text-white/90 bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
 							{!isAuthenticated 
 								? '🔒 Scan ticket to vote' 
 								: isVoted 
-									? 'Double tap to cancel'
+									? '❤️ Tap twice to cancel'
 									: hasVotedInCategory
-										? 'Already voted'
-										: 'Double tap to vote'
+										? '✓ Already voted'
+										: '💜 Tap twice to vote'
 							}
 						</span>
 					</div>
@@ -278,7 +324,7 @@ export function CandidateCard({
 				{/* Voted indicator */}
 				{isVoted && (
 					<div className="absolute top-2 right-2 z-20">
-						<div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+						<div className="w-9 h-9 rounded-full bg-linear-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/30 animate-scale-in">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white">
 								<path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
 							</svg>
@@ -295,24 +341,29 @@ export function CandidateCard({
 				</h3>
 				
 				{/* Vote status */}
-				<p className={`text-xs text-center mt-1 transition-colors ${
+				<p className={`text-xs text-center mt-1.5 transition-all ${
 					!isAuthenticated 
 						? 'text-gray-400' 
 						: isVoted 
-							? 'text-red-500 font-medium' 
+							? 'text-red-500 font-semibold' 
 							: hasVotedInCategory
 								? 'text-gray-400'
 								: 'text-purple-400'
 				}`}>
 					{isVoting 
-						? '⏳ Processing...'
+						? (
+							<span className="inline-flex items-center gap-1.5">
+								<span className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+								Processing...
+							</span>
+						)
 						: !isAuthenticated 
 							? '🔒 Scan ticket to vote' 
 							: isVoted 
-								? '❤️ Voted! (double tap to cancel)' 
+								? '❤️ You voted for this candidate' 
 								: hasVotedInCategory
 									? '— Already voted in this category'
-									: 'Double tap to vote'
+									: 'Double tap photo to vote'
 					}
 				</p>
 			</div>

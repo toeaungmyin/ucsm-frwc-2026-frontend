@@ -15,7 +15,6 @@ export function BulkDeleteDialog({
 	onClose,
 	onConfirm,
 	isLoading,
-	error,
 }: BulkDeleteDialogProps) {
 	return (
 		<ConfirmDialog
@@ -23,7 +22,7 @@ export function BulkDeleteDialog({
 			onClose={onClose}
 			onConfirm={onConfirm}
 			title="Delete All Tickets"
-			description={
+			message={
 				<>
 					Are you sure you want to delete all{" "}
 					<span className="font-semibold text-red-600">{ticketCount}</span> tickets? 
@@ -33,7 +32,6 @@ export function BulkDeleteDialog({
 			confirmLabel="Delete All Tickets"
 			isLoading={isLoading}
 			variant="danger"
-			error={error}
 		/>
 	);
 }

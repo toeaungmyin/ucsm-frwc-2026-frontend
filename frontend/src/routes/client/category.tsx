@@ -1,14 +1,25 @@
 import { createRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import { rootRoute } from "../__root";
 import { clientCandidatesApi, clientCategoriesApi, clientTicketsApi, clientVotesApi } from "../../api/client";
-import { CandidateCard, CategoryHeader, BubbleBackground, TicketScanDialog, animationStyles } from "../../components/client";
+import { 
+	CandidateCard, 
+	CategoryHeader, 
+	BubbleBackground, 
+	TicketScanDialog, 
+	animationStyles,
+	CandidatesListSkeleton,
+	HeaderSkeleton,
+	ErrorState,
+	EmptyState,
+} from "../../components/client";
 import { useVoterStore } from "../../stores/voter.store";
 import { useToast } from "../../components/ui";
 
 function CategoryDetailPage() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { categoryId } = useParams({ from: "/category/$categoryId" });
 	const [showScanDialog, setShowScanDialog] = useState(false);
 	const [authError, setAuthError] = useState<string | null>(null);
@@ -74,6 +85,7 @@ function CategoryDetailPage() {
 		data,
 		isLoading,
 		error,
+		refetch,
 	} = useQuery({
 		queryKey: ["client-candidates", categoryId],
 		queryFn: () => clientCandidatesApi.getByCategoryId(categoryId),
@@ -86,7 +98,7 @@ function CategoryDetailPage() {
 	});
 
 	const handleBack = () => {
-		navigate({ to: "/" });
+		navigate({ to: "/", search: { ticket: undefined } });
 	};
 
 	const handleCategoryChange = (newCategoryId: string) => {
@@ -110,15 +122,15 @@ function CategoryDetailPage() {
 		authenticateTicket.mutate(ticketId);
 	}, [authenticateTicket]);
 
+	const handleRetry = useCallback(() => {
+		queryClient.invalidateQueries({ queryKey: ["client-candidates", categoryId] });
+		refetch();
+	}, [queryClient, refetch, categoryId]);
+
 	// Determine voting state
 	const hasVotedInCategory = voteStatus?.hasVoted || ticket?.votedCategories.includes(categoryId) || false;
 	const votedCandidateId = voteStatus?.votedCandidateId || null;
 	const isVoting = castVote.isPending || cancelVote.isPending;
-
-	// Initial load handled by HTML loader
-	if (isLoading) {
-		return null;
-	}
 
 	return (
 		<div className="min-h-screen bg-linear-to-br from-white via-purple-100 to-violet-200 relative overflow-hidden flex justify-center">
@@ -140,20 +152,29 @@ function CategoryDetailPage() {
 			
 			{/* Content - Fixed mobile width */}
 			<div className="relative z-10 w-full max-w-[430px] px-5 py-4">
-				{/* Header */}
-				<CategoryHeader
-					categoryName={data?.category?.name}
-					categoryId={categoryId}
-					categories={categories}
-					onBack={handleBack}
-					onCategoryChange={handleCategoryChange}
-				/>
+				{/* Header - Show skeleton while loading */}
+				{isLoading ? (
+					<div className="animate-page-enter">
+						<HeaderSkeleton />
+					</div>
+				) : (
+					<div className="animate-page-enter">
+						<CategoryHeader
+							categoryName={data?.category?.name}
+							categoryId={categoryId}
+							categories={categories}
+							onBack={handleBack}
+							onCategoryChange={handleCategoryChange}
+						/>
+					</div>
+				)}
 				
 				{/* Authentication prompt banner */}
-				{!isAuthenticated && (
+				{!isAuthenticated && !isLoading && (
 					<button
 						onClick={() => setShowScanDialog(true)}
-						className="w-full mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+						className="w-full mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all active:scale-[0.98] animate-fade-in-up"
+						style={{ animationDelay: '0.1s', opacity: 0 }}
 					>
 						<div className="flex items-center justify-center gap-2 text-amber-700">
 							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,24 +185,26 @@ function CategoryDetailPage() {
 					</button>
 				)}
 
-				{/* Error State */}
-				{error && (
-					<div className="text-center py-12">
-						<p className="text-purple-600/60 text-sm mb-4">
-							Unable to load candidates. Please try again.
-						</p>
-						<button
-							onClick={handleBack}
-							className="px-4 py-2 bg-purple-500 text-white rounded-xl text-sm font-medium hover:bg-purple-600 transition-colors"
-						>
-							Go Back
-						</button>
+				{/* Loading State - Skeleton */}
+				{isLoading && (
+					<div className="animate-page-enter">
+						<CandidatesListSkeleton />
 					</div>
 				)}
 
+				{/* Error State */}
+				{error && !isLoading && (
+					<ErrorState
+						title="Unable to load candidates"
+						message="We couldn't fetch the candidates for this category. Please try again."
+						onRetry={handleRetry}
+						onBack={handleBack}
+					/>
+				)}
+
 				{/* Candidates Grid */}
-				{data && data.candidates.length > 0 && (
-					<div className="grid grid-cols-1 gap-3">
+				{!isLoading && !error && data && data.candidates.length > 0 && (
+					<div className="grid grid-cols-1 gap-3 animate-page-enter">
 						{data.candidates.map((candidate, index) => (
 							<CandidateCard 
 								key={candidate.id} 
@@ -200,11 +223,26 @@ function CategoryDetailPage() {
 				)}
 
 				{/* Empty State */}
-				{data && data.candidates.length === 0 && (
-					<div className="text-center py-12">
-						<p className="text-purple-600/60 text-sm mb-1">No candidates available</p>
-						<p className="text-purple-400 text-xs">Check back soon</p>
-					</div>
+				{!isLoading && !error && data && data.candidates.length === 0 && (
+					<EmptyState
+						title="No candidates yet"
+						message="Candidates will appear here once they're added."
+						icon={
+							<svg 
+								className="w-10 h-10 text-purple-300" 
+								fill="none" 
+								viewBox="0 0 24 24" 
+								stroke="currentColor"
+							>
+								<path 
+									strokeLinecap="round" 
+									strokeLinejoin="round" 
+									strokeWidth={1.5} 
+									d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" 
+								/>
+							</svg>
+						}
+					/>
 				)}
 			</div>
 		</div>

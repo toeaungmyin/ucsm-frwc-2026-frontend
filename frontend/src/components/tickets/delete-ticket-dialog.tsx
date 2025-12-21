@@ -14,7 +14,6 @@ export function DeleteTicketDialog({
 	onClose,
 	onConfirm,
 	isLoading,
-	error,
 }: DeleteTicketDialogProps) {
 	if (!ticket) return null;
 
@@ -24,7 +23,7 @@ export function DeleteTicketDialog({
 			onClose={onClose}
 			onConfirm={onConfirm}
 			title="Delete Ticket"
-			description={
+			message={
 				<>
 					Are you sure you want to delete ticket{" "}
 					<code className="px-2 py-0.5 bg-gray-100 rounded font-mono text-sm">
@@ -36,7 +35,6 @@ export function DeleteTicketDialog({
 			confirmLabel="Delete Ticket"
 			isLoading={isLoading}
 			variant="danger"
-			error={error}
 		/>
 	);
 }
