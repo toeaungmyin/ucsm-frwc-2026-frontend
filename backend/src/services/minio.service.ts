@@ -164,10 +164,12 @@ export const fileExists = async (objectName: string): Promise<boolean> => {
 
 /**
  * Get the public URL for a file (if bucket has public read policy)
+ * Uses APP_URL for public access (e.g., https://ucsmfrwc.toeaungmyin.me/storage/...)
  */
 export const getPublicUrl = (objectName: string): string => {
-	const protocol = env.MINIO_USE_SSL === "true" ? "https" : "http";
-	return `${protocol}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}/${BUCKET_NAME}/${objectName}`;
+	// APP_URL should be the public domain without protocol
+	const appUrl = env.APP_URL.replace(/^https?:\/\//, "");
+	return `https://${appUrl}/storage/${BUCKET_NAME}/${objectName}`;
 };
 
 /**

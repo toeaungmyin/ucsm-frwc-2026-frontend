@@ -45,10 +45,6 @@ RUN npx prisma generate
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
 # Change ownership to non-root user
 RUN chown -R nodeuser:nodejs /app
 
@@ -62,5 +58,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8000/api/health || exit 1
 
-# Start the application with entrypoint
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Start the application
+CMD ["node", "dist/server.js"]
