@@ -8,21 +8,36 @@ const dialogStyles = `
   to { opacity: 1; }
 }
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes scanLine {
+  0% { top: 20px; }
+  50% { top: calc(100% - 20px); }
+  100% { top: 20px; }
+}
+@keyframes borderGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(147, 51, 234, 0.5); }
 }
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.25s ease-out forwards;
 }
 .animate-slide-up {
-  animation: slideUp 0.4s ease-out forwards;
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.animate-pulse-slow {
-  animation: pulse 2s ease-in-out infinite;
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-scan-line {
+  animation: scanLine 2s ease-in-out infinite;
+}
+.animate-border-glow {
+  animation: borderGlow 2s ease-in-out infinite;
 }
 `;
 
@@ -139,84 +154,103 @@ export function TicketScanDialog({ onScanSuccess, onClose, isAuthenticating, aut
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in"
 			onClick={handleClose}
 		>
 			<style>{dialogStyles}</style>
 			<div
-				className="relative bg-white rounded-3xl w-full max-w-sm shadow-2xl shadow-purple-500/20 overflow-hidden animate-slide-up"
+				className="relative bg-white rounded-[28px] w-full max-w-[360px] shadow-2xl animate-slide-up overflow-hidden"
 				onClick={(e) => e.stopPropagation()}
 			>
-				{/* Header */}
-				<div className="bg-linear-to-br from-purple-600 via-purple-700 to-violet-800 px-6 py-5 text-center relative overflow-hidden">
-					{/* Decorative elements */}
-					<div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-					<div className="absolute -bottom-8 -left-8 w-24 h-24 bg-purple-400/20 rounded-full blur-xl" />
-					
-					{/* Close button */}
-					<button
-						onClick={handleClose}
-						className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white/80 hover:bg-white/30 hover:text-white transition-all"
-					>
-						<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-
-					{/* Ticket icon */}
-					<div className="w-16 h-16 mx-auto mb-3 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm animate-pulse-slow">
-						<svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-						</svg>
-					</div>
-					
-					<h2 className="text-xl font-bold text-white relative">Scan Your Ticket</h2>
-					<p className="text-purple-200 text-sm mt-1 relative">to start voting</p>
-				</div>
+				{/* Close button - floating */}
+				<button
+					onClick={handleClose}
+					className="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-black/5 text-gray-500 hover:bg-black/10 hover:text-gray-700 transition-all"
+				>
+					<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+						<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
 
 				{/* Content */}
-				<div className="px-6 py-5">
+				<div className="p-6 pt-8">
 					{/* Error messages */}
 					{(authError || scanError) && (
-						<div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
-							<div className="flex items-center gap-2 text-red-600">
-								<svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-								</svg>
-								<p className="text-sm font-medium">{authError || scanError}</p>
+						<div className="mb-5 p-3.5 bg-red-50 border border-red-100 rounded-2xl">
+							<div className="flex items-start gap-3 text-red-600">
+								<div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+									<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+										<path
+											fillRule="evenodd"
+											d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+											clipRule="evenodd"
+										/>
+									</svg>
+								</div>
+								<p className="text-sm font-medium leading-snug">{authError || scanError}</p>
 							</div>
 						</div>
 					)}
 
 					{/* Scanner view */}
 					{isScanning ? (
-						<div className="space-y-4">
-							<div
-								id="qr-reader"
-								ref={containerRef}
-								className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-900"
-							/>
-							<p className="text-center text-sm text-gray-500">
-								Point your camera at the QR code on your ticket
+						<div className="space-y-5">
+							{/* Scanner container */}
+							<div className="relative rounded-2xl overflow-hidden bg-gray-900 animate-border-glow">
+								<div id="qr-reader" ref={containerRef} className="w-full aspect-square" />
+								{/* Scan line overlay */}
+								<div className="absolute inset-0 pointer-events-none">
+									<div className="absolute left-6 right-6 h-0.5 bg-violet-500 animate-scan-line shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+								</div>
+								{/* Corner brackets */}
+								<div className="absolute inset-0 pointer-events-none">
+									<div className="absolute top-4 left-4 w-8 h-8 border-l-3 border-t-3 border-white/60 rounded-tl-lg" />
+									<div className="absolute top-4 right-4 w-8 h-8 border-r-3 border-t-3 border-white/60 rounded-tr-lg" />
+									<div className="absolute bottom-4 left-4 w-8 h-8 border-l-3 border-b-3 border-white/60 rounded-bl-lg" />
+									<div className="absolute bottom-4 right-4 w-8 h-8 border-r-3 border-b-3 border-white/60 rounded-br-lg" />
+								</div>
+							</div>
+
+							{/* Instructions */}
+							<p className="text-center text-sm text-gray-500 font-medium">
+								Align the QR code within the frame
 							</p>
+
+							{/* Cancel button */}
 							<button
 								onClick={stopScanner}
-								className="w-full py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+								className="w-full py-3.5 px-4 bg-gray-100 text-gray-700 font-semibold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98]"
 							>
-								Cancel
+								Cancel Scanning
 							</button>
 						</div>
 					) : (
-						<div className="space-y-4">
-							{/* Instructions */}
-							<div className="text-center py-2">
-								<div className="w-20 h-20 mx-auto mb-4 bg-purple-50 rounded-2xl flex items-center justify-center">
-									<svg className="w-10 h-10 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+						<div className="space-y-6">
+							{/* Icon and title */}
+							<div className="text-center">
+								<div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-purple-100 to-violet-100 rounded-3xl flex items-center justify-center animate-float">
+									<svg
+										className="w-10 h-10 text-purple-600"
+										fill="none"
+										viewBox="0 0 24 24"
+										strokeWidth={1.5}
+										stroke="currentColor"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
+										/>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
+										/>
 									</svg>
 								</div>
-								<p className="text-gray-600 text-sm leading-relaxed">
-									You need to scan your ticket's QR code to authenticate before you can vote.
+								<h2 className="text-xl font-bold text-gray-900 mb-2">Scan Your Ticket</h2>
+								<p className="text-gray-500 text-sm leading-relaxed max-w-[260px] mx-auto">
+									Use your camera to scan the QR code on your ticket to start voting
 								</p>
 							</div>
 
@@ -224,30 +258,56 @@ export function TicketScanDialog({ onScanSuccess, onClose, isAuthenticating, aut
 							<button
 								onClick={startScanner}
 								disabled={isAuthenticating}
-								className="w-full py-4 px-4 bg-linear-to-r from-purple-600 to-violet-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-violet-700 transition-all shadow-lg shadow-purple-500/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+								className="group w-full py-4 px-5 bg-purple-600 text-white font-semibold rounded-2xl hover:bg-purple-700 transition-all shadow-lg shadow-purple-500/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-3"
 							>
 								{isAuthenticating ? (
 									<>
 										<svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-											<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-											<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+											<circle
+												className="opacity-25"
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												strokeWidth="4"
+											/>
+											<path
+												className="opacity-75"
+												fill="currentColor"
+												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+											/>
 										</svg>
-										<span>Authenticating...</span>
+										<span>Verifying ticket...</span>
 									</>
 								) : (
 									<>
-										<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											className="lucide lucide-scan-line-icon lucide-scan-line"
+										>
+											<path d="M3 7V5a2 2 0 0 1 2-2h2" />
+											<path d="M17 3h2a2 2 0 0 1 2 2v2" />
+											<path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+											<path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+											<path d="M7 12h10" />
 										</svg>
-										<span>Scan Ticket QR Code</span>
+										<span>Scan QR Code</span>
 									</>
 								)}
 							</button>
 
 							{/* Help text */}
 							<p className="text-center text-xs text-gray-400">
-								Don't have a ticket? Contact the event organizers.
+								Don't have a ticket?{" "}
+								<span className="text-purple-600 font-medium">Contact organizers</span>
 							</p>
 						</div>
 					)}
@@ -256,4 +316,3 @@ export function TicketScanDialog({ onScanSuccess, onClose, isAuthenticating, aut
 		</div>
 	);
 }
-

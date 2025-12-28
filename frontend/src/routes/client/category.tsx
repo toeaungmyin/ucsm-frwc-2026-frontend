@@ -136,7 +136,7 @@ function CategoryDetailPage() {
 		<div className="min-h-screen bg-linear-to-br from-white via-purple-100 to-violet-200 relative overflow-hidden flex justify-center">
 			{/* Inject custom animations */}
 			<style>{animationStyles}</style>
-			
+
 			{/* Ticket Scan Dialog */}
 			{showScanDialog && (
 				<TicketScanDialog
@@ -146,19 +146,17 @@ function CategoryDetailPage() {
 					authError={authError}
 				/>
 			)}
-			
+
 			{/* Animated Bubbles Background */}
 			<BubbleBackground animated />
-			
+
 			{/* Content - Fixed mobile width */}
 			<div className="relative z-10 w-full max-w-[430px] px-5 py-4">
-				{/* Header - Show skeleton while loading */}
-				{isLoading ? (
-					<div className="animate-page-enter">
+				{/* Header */}
+				<div className="animate-fade-in-up" style={{ animationDelay: "0.1s", animationDuration: "0.5s" }}>
+					{isLoading ? (
 						<HeaderSkeleton />
-					</div>
-				) : (
-					<div className="animate-page-enter">
+					) : (
 						<CategoryHeader
 							categoryName={data?.category?.name}
 							categoryId={categoryId}
@@ -166,50 +164,38 @@ function CategoryDetailPage() {
 							onBack={handleBack}
 							onCategoryChange={handleCategoryChange}
 						/>
-					</div>
-				)}
-				
-				{/* Authentication prompt banner */}
-				{!isAuthenticated && !isLoading && (
-					<button
-						onClick={() => setShowScanDialog(true)}
-						className="w-full mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all active:scale-[0.98] animate-fade-in-up"
-						style={{ animationDelay: '0.1s', opacity: 0 }}
-					>
-						<div className="flex items-center justify-center gap-2 text-amber-700">
-							<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-							</svg>
-							<span className="text-sm font-medium">Scan your ticket to vote</span>
-						</div>
-					</button>
-				)}
+					)}
+				</div>
 
 				{/* Loading State - Skeleton */}
 				{isLoading && (
-					<div className="animate-page-enter">
+					<div className="animate-fade-in-up" style={{ animationDelay: "0.2s", animationDuration: "0.5s" }}>
 						<CandidatesListSkeleton />
 					</div>
 				)}
 
 				{/* Error State */}
 				{error && !isLoading && (
-					<ErrorState
-						title="Unable to load candidates"
-						message="We couldn't fetch the candidates for this category. Please try again."
-						onRetry={handleRetry}
-						onBack={handleBack}
-					/>
+					<div className="animate-fade-in-up" style={{ animationDelay: "0.2s", animationDuration: "0.5s" }}>
+						<ErrorState
+							title="Unable to load candidates"
+							message="We couldn't fetch the candidates for this category. Please try again."
+							onRetry={handleRetry}
+							onBack={handleBack}
+						/>
+					</div>
 				)}
 
 				{/* Candidates Grid */}
 				{!isLoading && !error && data && data.candidates.length > 0 && (
-					<div className="grid grid-cols-1 gap-3 animate-page-enter">
-						{data.candidates.map((candidate, index) => (
-							<CandidateCard 
-								key={candidate.id} 
-								candidate={candidate} 
-								index={index}
+					<div
+						className="grid grid-cols-1 gap-3 animate-fade-in-up"
+						style={{ animationDelay: "0.2s", animationDuration: "0.5s" }}
+					>
+						{data.candidates.map((candidate) => (
+							<CandidateCard
+								key={candidate.id}
+								candidate={candidate}
 								isAuthenticated={isAuthenticated}
 								isVoted={votedCandidateId === candidate.id}
 								isVoting={isVoting}
@@ -224,25 +210,27 @@ function CategoryDetailPage() {
 
 				{/* Empty State */}
 				{!isLoading && !error && data && data.candidates.length === 0 && (
-					<EmptyState
-						title="No candidates yet"
-						message="Candidates will appear here once they're added."
-						icon={
-							<svg 
-								className="w-10 h-10 text-purple-300" 
-								fill="none" 
-								viewBox="0 0 24 24" 
-								stroke="currentColor"
-							>
-								<path 
-									strokeLinecap="round" 
-									strokeLinejoin="round" 
-									strokeWidth={1.5} 
-									d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" 
-								/>
-							</svg>
-						}
-					/>
+					<div className="animate-fade-in-up" style={{ animationDelay: "0.2s", animationDuration: "0.5s" }}>
+						<EmptyState
+							title="No candidates yet"
+							message="Candidates will appear here once they're added."
+							icon={
+								<svg
+									className="w-10 h-10 text-purple-300"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={1.5}
+										d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+									/>
+								</svg>
+							}
+						/>
+					</div>
 				)}
 			</div>
 		</div>

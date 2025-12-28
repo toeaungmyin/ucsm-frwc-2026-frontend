@@ -1,6 +1,25 @@
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess } from "@/utils/index.js";
+import { getPublicUrl } from "@/services/index.js";
+
+// Helper to add presigned image URL to candidate
+const withImageUrl = async <T extends { image: string | null }>(
+	candidate: T
+): Promise<T & { imageUrl: string | null }> => {
+	return {
+		...candidate,
+		imageUrl: candidate.image ? await getPublicUrl(candidate.image) : null,
+	};
+};
+
+// Helper to add presigned icon URL to category
+const withIconUrl = async <T extends { icon: string | null }>(category: T): Promise<T & { iconUrl: string | null }> => {
+	return {
+		...category,
+		iconUrl: category.icon ? await getPublicUrl(category.icon) : null,
+	};
+};
 
 /**
  * Get candidates by category ID
@@ -47,7 +66,15 @@ export const getByCategoryId = async (
 			},
 		});
 
-		sendSuccess(res, { category, candidates }, "Candidates fetched successfully");
+		// Add presigned URLs
+		const categoryWithUrl = await withIconUrl(category);
+		const candidatesWithUrls = await Promise.all(candidates.map(withImageUrl));
+
+		sendSuccess(
+			res,
+			{ category: categoryWithUrl, candidates: candidatesWithUrls },
+			"Candidates fetched successfully"
+		);
 	} catch (error) {
 		next(error);
 	}

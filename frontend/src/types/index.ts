@@ -23,6 +23,7 @@ export interface Category {
 	id: string;
 	name: string;
 	icon: string | null;
+	iconUrl: string | null; // Presigned URL for display
 	order: number;
 	isActive: boolean;
 	createdAt: string;
@@ -40,6 +41,7 @@ export interface Candidate {
 		name: string;
 	};
 	image: string | null;
+	imageUrl: string | null; // Presigned URL for display
 	createdAt: string;
 }
 

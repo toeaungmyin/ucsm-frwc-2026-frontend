@@ -39,16 +39,20 @@ export const getConfig = async (
 			? now >= settings.eventStartTime 
 			: false;
 
-		sendSuccess(res, {
-			eventStartTime: settings.eventStartTime?.toISOString() || null,
-			eventName: settings.eventName,
-			// Voting is enabled if admin enabled it OR if event time has started
-			votingEnabled: settings.votingEnabled,
-			isEventStarted,
-			serverTime: now.toISOString(),
-			// Include promo video URL if exists
-			promoVideoUrl: settings.promoVideo ? getPublicUrl(settings.promoVideo) : null,
-		}, "Config fetched successfully");
+		sendSuccess(
+			res,
+			{
+				eventStartTime: settings.eventStartTime?.toISOString() || null,
+				eventName: settings.eventName,
+				// Voting is enabled if admin enabled it OR if event time has started
+				votingEnabled: settings.votingEnabled,
+				isEventStarted,
+				serverTime: now.toISOString(),
+				// Include promo video URL if exists
+				promoVideoUrl: settings.promoVideo ? await getPublicUrl(settings.promoVideo) : null,
+			},
+			"Config fetched successfully"
+		);
 	} catch (error) {
 		next(error);
 	}

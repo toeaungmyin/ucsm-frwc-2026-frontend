@@ -6,6 +6,7 @@ export interface ClientCandidate {
 	nomineeId: string;
 	name: string;
 	image: string | null;
+	imageUrl: string | null;
 }
 
 export interface CategoryWithCandidates {
@@ -13,6 +14,7 @@ export interface CategoryWithCandidates {
 		id: string;
 		name: string;
 		icon: string | null;
+		iconUrl: string | null;
 	};
 	candidates: ClientCandidate[];
 }

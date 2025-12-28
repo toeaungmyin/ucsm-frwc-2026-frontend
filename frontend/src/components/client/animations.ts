@@ -141,7 +141,7 @@ export const animationStyles = `
 		background-size: 200% 100%;
 		animation: shimmer 2s infinite;
 	}
-	.animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+	.animate-fade-in-up { animation: fadeInUp 0.6s ease-out both; }
 	.animate-scale-in { animation: scaleIn 0.5s ease-out forwards; }
 	.animate-glow { animation: glow 2s ease-in-out infinite; }
 
@@ -156,7 +156,7 @@ export const animationStyles = `
 		animation: slideInRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	}
 	.animate-card-enter {
-		animation: cardEnter 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+		animation: cardEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	}
 
 	/* Skeleton classes */

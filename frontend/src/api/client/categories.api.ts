@@ -6,6 +6,7 @@ export interface ClientCategory {
 	id: string;
 	name: string;
 	icon: string | null;
+	iconUrl: string | null;
 	order: number;
 }
 

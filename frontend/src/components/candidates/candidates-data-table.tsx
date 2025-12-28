@@ -42,9 +42,9 @@ export function CandidatesDataTable({ candidates, onEdit, onDelete }: Candidates
 								<td className="px-6 py-4">
 									<div className="flex items-center gap-3">
 										<div className="w-12 h-12 bg-gray-100 rounded-full overflow-hidden flex items-center justify-center shrink-0">
-											{candidate.image ? (
+											{candidate.imageUrl ? (
 												<img
-													src={candidate.image}
+													src={candidate.imageUrl}
 													alt={candidate.name}
 													className="w-full h-full object-cover"
 												/>

@@ -20,7 +20,7 @@ export function EditCategoryDialog({ category, onClose, onSubmit, isLoading, err
 					name: category.name,
 					isActive: category.isActive,
 				}}
-				currentIcon={category.icon}
+				currentIcon={category.iconUrl}
 				onSubmit={onSubmit}
 				onCancel={onClose}
 				isLoading={isLoading}

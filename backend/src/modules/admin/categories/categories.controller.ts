@@ -2,11 +2,26 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess, sendCreated } from "@/utils/index.js";
 import { AppError } from "@/middleware/index.js";
-import { uploadFile, deleteFile, getPublicUrl } from "@/services/index.js";
+import { uploadFile, deleteFile, getPublicUrl, extractObjectPath } from "@/services/index.js";
 import { v4 as uuidv4 } from "uuid";
 import type { CreateCategoryInput, UpdateCategoryInput } from "./categories.schema.js";
 
 const ICON_FOLDER = "categories/icons";
+
+// Helper to add presigned icon URL to category
+const withIconUrl = async <T extends { icon: string | null }>(category: T): Promise<T & { iconUrl: string | null }> => {
+	return {
+		...category,
+		iconUrl: category.icon ? await getPublicUrl(category.icon) : null,
+	};
+};
+
+// Helper to add presigned icon URLs to multiple categories
+const withIconUrls = async <T extends { icon: string | null }>(
+	categories: T[]
+): Promise<(T & { iconUrl: string | null })[]> => {
+	return Promise.all(categories.map(withIconUrl));
+};
 
 export const index = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
@@ -14,17 +29,14 @@ export const index = async (_req: Request, res: Response, next: NextFunction): P
 			orderBy: { order: "asc" },
 		});
 
-		sendSuccess(res, categories);
+		const categoriesWithUrls = await withIconUrls(categories);
+		sendSuccess(res, categoriesWithUrls);
 	} catch (error) {
 		next(error);
 	}
 };
 
-export const show = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const show = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -36,7 +48,8 @@ export const show = async (
 			throw new AppError("Category not found", 404);
 		}
 
-		sendSuccess(res, category);
+		const categoryWithUrl = await withIconUrl(category);
+		sendSuccess(res, categoryWithUrl);
 	} catch (error) {
 		next(error);
 	}
@@ -71,11 +84,12 @@ export const store = async (
 				name,
 				order: nextOrder,
 				isActive: isActive ?? true,
-				icon: iconPath ? getPublicUrl(iconPath) : null,
+				icon: iconPath || null, // Store only object path
 			},
 		});
 
-		sendCreated(res, category, "Category created successfully");
+		const categoryWithUrl = await withIconUrl(category);
+		sendCreated(res, categoryWithUrl, "Category created successfully");
 	} catch (error) {
 		next(error);
 	}
@@ -105,7 +119,7 @@ export const update = async (
 			// Delete old icon if exists
 			if (existingCategory.icon) {
 				try {
-					const oldIconPath = existingCategory.icon.split("/").slice(-2).join("/");
+					const oldIconPath = extractObjectPath(existingCategory.icon);
 					await deleteFile(oldIconPath);
 				} catch {
 					// Ignore delete errors for old file
@@ -122,11 +136,12 @@ export const update = async (
 			data: {
 				...(name !== undefined && { name }),
 				...(isActive !== undefined && { isActive }),
-				...(iconPath && { icon: getPublicUrl(iconPath) }),
+				...(iconPath && { icon: iconPath }), // Store only object path
 			},
 		});
 
-		sendSuccess(res, category, "Category updated successfully");
+		const categoryWithUrl = await withIconUrl(category);
+		sendSuccess(res, categoryWithUrl, "Category updated successfully");
 	} catch (error) {
 		next(error);
 	}
@@ -155,17 +170,14 @@ export const reorder = async (
 			orderBy: { order: "asc" },
 		});
 
-		sendSuccess(res, categories, "Categories reordered successfully");
+		const categoriesWithUrls = await withIconUrls(categories);
+		sendSuccess(res, categoriesWithUrls, "Categories reordered successfully");
 	} catch (error) {
 		next(error);
 	}
 };
 
-export const destroy = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const destroy = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -180,7 +192,7 @@ export const destroy = async (
 		// Delete icon from MinIO if exists
 		if (existingCategory.icon) {
 			try {
-				const iconPath = existingCategory.icon.split("/").slice(-2).join("/");
+				const iconPath = extractObjectPath(existingCategory.icon);
 				await deleteFile(iconPath);
 			} catch {
 				// Ignore delete errors
@@ -198,11 +210,7 @@ export const destroy = async (
 };
 
 // Remove icon from category
-export const removeIcon = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const removeIcon = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -217,7 +225,7 @@ export const removeIcon = async (
 		// Delete icon from MinIO if exists
 		if (existingCategory.icon) {
 			try {
-				const iconPath = existingCategory.icon.split("/").slice(-2).join("/");
+				const iconPath = extractObjectPath(existingCategory.icon);
 				await deleteFile(iconPath);
 			} catch {
 				// Ignore delete errors
@@ -229,7 +237,8 @@ export const removeIcon = async (
 			data: { icon: null },
 		});
 
-		sendSuccess(res, category, "Icon removed successfully");
+		const categoryWithUrl = await withIconUrl(category);
+		sendSuccess(res, categoryWithUrl, "Icon removed successfully");
 	} catch (error) {
 		next(error);
 	}

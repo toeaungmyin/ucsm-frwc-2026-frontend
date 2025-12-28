@@ -124,9 +124,9 @@ export function CategoriesDataTable({
 								<td className="px-6 py-4">
 									<div className="flex gap-2 justify-start items-center">
 										<div className="w-12 h-12 p-2 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-											{category.icon ? (
+											{category.iconUrl ? (
 												<img
-													src={category.icon}
+													src={category.iconUrl}
 													alt={`${category.name} icon`}
 													className="w-full h-full object-cover"
 												/>

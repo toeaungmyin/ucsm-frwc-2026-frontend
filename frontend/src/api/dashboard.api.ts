@@ -27,6 +27,7 @@ export interface CandidateVoteStats {
 	nomineeId: string;
 	name: string;
 	image: string | null;
+	imageUrl: string | null;
 	voteCount: number;
 	percentage: number;
 	isWinner: boolean;
@@ -36,6 +37,7 @@ export interface CategoryVoteStats {
 	id: string;
 	name: string;
 	icon: string | null;
+	iconUrl: string | null;
 	totalVotes: number;
 	candidates: CandidateVoteStats[];
 }

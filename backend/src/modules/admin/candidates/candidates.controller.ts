@@ -2,17 +2,30 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess, sendCreated } from "@/utils/index.js";
 import { AppError } from "@/middleware/index.js";
-import { uploadFile, deleteFile, getPublicUrl } from "@/services/index.js";
+import { uploadFile, deleteFile, getPublicUrl, extractObjectPath } from "@/services/index.js";
 import { v4 as uuidv4 } from "uuid";
 import type { CreateCandidateInput, UpdateCandidateInput } from "./candidates.schema.js";
 
 const IMAGE_FOLDER = "candidates/photos";
 
-export const index = async (
-	_req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+// Helper to add presigned image URL to candidate
+const withImageUrl = async <T extends { image: string | null }>(
+	candidate: T
+): Promise<T & { imageUrl: string | null }> => {
+	return {
+		...candidate,
+		imageUrl: candidate.image ? await getPublicUrl(candidate.image) : null,
+	};
+};
+
+// Helper to add presigned image URLs to multiple candidates
+const withImageUrls = async <T extends { image: string | null }>(
+	candidates: T[]
+): Promise<(T & { imageUrl: string | null })[]> => {
+	return Promise.all(candidates.map(withImageUrl));
+};
+
+export const index = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const candidates = await prisma.candidate.findMany({
 			orderBy: { createdAt: "asc" },
@@ -23,17 +36,14 @@ export const index = async (
 			},
 		});
 
-		sendSuccess(res, candidates);
+		const candidatesWithUrls = await withImageUrls(candidates);
+		sendSuccess(res, candidatesWithUrls);
 	} catch (error) {
 		next(error);
 	}
 };
 
-export const show = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const show = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -50,7 +60,8 @@ export const show = async (
 			throw new AppError("Candidate not found", 404);
 		}
 
-		sendSuccess(res, candidate);
+		const candidateWithUrl = await withImageUrl(candidate);
+		sendSuccess(res, candidateWithUrl);
 	} catch (error) {
 		next(error);
 	}
@@ -86,7 +97,7 @@ export const store = async (
 				nomineeId,
 				name,
 				categoryId: existingCategory.id,
-				image: imagePath ? getPublicUrl(imagePath) : null,
+				image: imagePath || null, // Store only object path
 			},
 			include: {
 				category: {
@@ -95,7 +106,8 @@ export const store = async (
 			},
 		});
 
-		sendCreated(res, candidate, "Candidate created successfully");
+		const candidateWithUrl = await withImageUrl(candidate);
+		sendCreated(res, candidateWithUrl, "Candidate created successfully");
 	} catch (error) {
 		next(error);
 	}
@@ -138,7 +150,7 @@ export const update = async (
 			// Delete old image if exists
 			if (existingCandidate.image) {
 				try {
-					const oldImagePath = existingCandidate.image.split("/").slice(-2).join("/");
+					const oldImagePath = extractObjectPath(existingCandidate.image);
 					await deleteFile(oldImagePath);
 				} catch {
 					// Ignore delete errors for old file
@@ -156,7 +168,7 @@ export const update = async (
 				...(nomineeId !== undefined && { nomineeId }),
 				...(name !== undefined && { name }),
 				...(categoryId !== undefined && { categoryId }),
-				...(imagePath && { image: getPublicUrl(imagePath) }),
+				...(imagePath && { image: imagePath }), // Store only object path
 			},
 			include: {
 				category: {
@@ -165,17 +177,14 @@ export const update = async (
 			},
 		});
 
-		sendSuccess(res, candidate, "Candidate updated successfully");
+		const candidateWithUrl = await withImageUrl(candidate);
+		sendSuccess(res, candidateWithUrl, "Candidate updated successfully");
 	} catch (error) {
 		next(error);
 	}
 };
 
-export const destroy = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const destroy = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -190,7 +199,7 @@ export const destroy = async (
 		// Delete image from MinIO if exists
 		if (existingCandidate.image) {
 			try {
-				const imagePath = existingCandidate.image.split("/").slice(-2).join("/");
+				const imagePath = extractObjectPath(existingCandidate.image);
 				await deleteFile(imagePath);
 			} catch {
 				// Ignore delete errors
@@ -207,11 +216,7 @@ export const destroy = async (
 	}
 };
 
-export const destroyAll = async (
-	_req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const destroyAll = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const result = await prisma.candidate.deleteMany();
 
@@ -222,11 +227,7 @@ export const destroyAll = async (
 };
 
 // Remove image from candidate
-export const removeImage = async (
-	req: Request<{ id: string }>,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const removeImage = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const { id } = req.params;
 
@@ -241,7 +242,7 @@ export const removeImage = async (
 		// Delete image from MinIO if exists
 		if (existingCandidate.image) {
 			try {
-				const imagePath = existingCandidate.image.split("/").slice(-2).join("/");
+				const imagePath = extractObjectPath(existingCandidate.image);
 				await deleteFile(imagePath);
 			} catch {
 				// Ignore delete errors
@@ -258,7 +259,8 @@ export const removeImage = async (
 			},
 		});
 
-		sendSuccess(res, candidate, "Image removed successfully");
+		const candidateWithUrl = await withImageUrl(candidate);
+		sendSuccess(res, candidateWithUrl, "Image removed successfully");
 	} catch (error) {
 		next(error);
 	}

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess } from "@/utils/index.js";
+import { getPublicUrl } from "@/services/index.js";
 
 export interface DashboardStats {
 	categories: {
@@ -28,6 +29,7 @@ export interface CandidateVoteStats {
 	nomineeId: string;
 	name: string;
 	image: string | null;
+	imageUrl: string | null;
 	voteCount: number;
 	percentage: number;
 	isWinner: boolean;
@@ -37,6 +39,7 @@ export interface CategoryVoteStats {
 	id: string;
 	name: string;
 	icon: string | null;
+	iconUrl: string | null;
 	totalVotes: number;
 	candidates: CandidateVoteStats[];
 }
@@ -222,45 +225,49 @@ const dashboardController = {
 			// Get total votes
 			const totalVotes = await prisma.vote.count();
 
-			// Transform data into statistics format
-			const categoryStats: CategoryVoteStats[] = categories.map((category) => {
-				const totalCategoryVotes = category.candidates.reduce(
-					(sum, candidate) => sum + candidate._count.votes,
-					0
-				);
+			// Transform data into statistics format with presigned URLs
+			const categoryStats: CategoryVoteStats[] = await Promise.all(
+				categories.map(async (category) => {
+					const totalCategoryVotes = category.candidates.reduce(
+						(sum, candidate) => sum + candidate._count.votes,
+						0
+					);
 
-				// Sort candidates by vote count (descending)
-				const sortedCandidates = [...category.candidates].sort(
-					(a, b) => b._count.votes - a._count.votes
-				);
+					// Sort candidates by vote count (descending)
+					const sortedCandidates = [...category.candidates].sort(
+						(a, b) => b._count.votes - a._count.votes
+					);
 
-				// Find highest vote count
-				const maxVotes =
-					sortedCandidates.length > 0 ? sortedCandidates[0]._count.votes : 0;
+					// Find highest vote count
+					const maxVotes =
+						sortedCandidates.length > 0 ? sortedCandidates[0]._count.votes : 0;
 
-				const candidateStats: CandidateVoteStats[] = sortedCandidates.map(
-					(candidate) => ({
-						id: candidate.id,
-						nomineeId: candidate.nomineeId,
-						name: candidate.name,
-						image: candidate.image,
-						voteCount: candidate._count.votes,
-						percentage:
-							totalCategoryVotes > 0
-								? Math.round((candidate._count.votes / totalCategoryVotes) * 100)
-								: 0,
-						isWinner: candidate._count.votes === maxVotes && maxVotes > 0,
-					})
-				);
+					const candidateStats: CandidateVoteStats[] = await Promise.all(
+						sortedCandidates.map(async (candidate) => ({
+							id: candidate.id,
+							nomineeId: candidate.nomineeId,
+							name: candidate.name,
+							image: candidate.image,
+							imageUrl: candidate.image ? await getPublicUrl(candidate.image) : null,
+							voteCount: candidate._count.votes,
+							percentage:
+								totalCategoryVotes > 0
+									? Math.round((candidate._count.votes / totalCategoryVotes) * 100)
+									: 0,
+							isWinner: candidate._count.votes === maxVotes && maxVotes > 0,
+						}))
+					);
 
-				return {
-					id: category.id,
-					name: category.name,
-					icon: category.icon,
-					totalVotes: totalCategoryVotes,
-					candidates: candidateStats,
-				};
-			});
+					return {
+						id: category.id,
+						name: category.name,
+						icon: category.icon,
+						iconUrl: category.icon ? await getPublicUrl(category.icon) : null,
+						totalVotes: totalCategoryVotes,
+						candidates: candidateStats,
+					};
+				})
+			);
 
 			const statistics: VotingStatistics = {
 				totalVotes,

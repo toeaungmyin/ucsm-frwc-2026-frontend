@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess } from "@/utils/index.js";
 import { AppError } from "@/middleware/index.js";
-import { uploadFile, deleteFile, getPublicUrl } from "@/services/index.js";
+import { uploadFile, deleteFile, getPublicUrl, extractObjectPath } from "@/services/index.js";
 import type { UpdateSettingsInput } from "./settings.schema.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -12,11 +12,7 @@ const SETTINGS_ID = "default";
 /**
  * Get current settings
  */
-export const getSettings = async (
-	_req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const getSettings = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		// Get or create settings
 		let settings = await prisma.settings.findUnique({
@@ -37,7 +33,7 @@ export const getSettings = async (
 		// Build response with video URL if exists
 		const response = {
 			...settings,
-			promoVideoUrl: settings.promoVideo ? getPublicUrl(settings.promoVideo) : null,
+			promoVideoUrl: settings.promoVideo ? await getPublicUrl(settings.promoVideo) : null,
 		};
 
 		sendSuccess(res, response, "Settings fetched successfully");
@@ -62,8 +58,8 @@ export const updateSettings = async (
 			where: { id: SETTINGS_ID },
 			update: {
 				...(eventName !== undefined && { eventName }),
-				...(eventStartTime !== undefined && { 
-					eventStartTime: eventStartTime ? new Date(eventStartTime) : null 
+				...(eventStartTime !== undefined && {
+					eventStartTime: eventStartTime ? new Date(eventStartTime) : null,
 				}),
 				...(votingEnabled !== undefined && { votingEnabled }),
 			},
@@ -114,11 +110,7 @@ export const toggleVoting = async (
 /**
  * Upload promo video
  */
-export const uploadPromoVideo = async (
-	req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const uploadPromoVideo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		const file = req.file;
 
@@ -134,7 +126,7 @@ export const uploadPromoVideo = async (
 		// Delete old video if exists
 		if (currentSettings?.promoVideo) {
 			try {
-				await deleteFile(currentSettings.promoVideo);
+				await deleteFile(extractObjectPath(currentSettings.promoVideo));
 			} catch {
 				// Ignore delete errors for old file
 			}
@@ -161,7 +153,7 @@ export const uploadPromoVideo = async (
 			res,
 			{
 				promoVideo: settings.promoVideo,
-				videoUrl: getPublicUrl(objectPath),
+				videoUrl: await getPublicUrl(objectPath),
 			},
 			"Promo video uploaded successfully"
 		);
@@ -173,11 +165,7 @@ export const uploadPromoVideo = async (
 /**
  * Delete promo video
  */
-export const deletePromoVideo = async (
-	_req: Request,
-	res: Response,
-	next: NextFunction
-): Promise<void> => {
+export const deletePromoVideo = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 	try {
 		// Get current settings
 		const currentSettings = await prisma.settings.findUnique({
@@ -189,7 +177,7 @@ export const deletePromoVideo = async (
 		}
 
 		// Delete from MinIO
-		await deleteFile(currentSettings.promoVideo);
+		await deleteFile(extractObjectPath(currentSettings.promoVideo));
 
 		// Update settings to remove video path
 		const settings = await prisma.settings.update({

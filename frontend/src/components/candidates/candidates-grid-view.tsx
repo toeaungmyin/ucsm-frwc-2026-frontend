@@ -17,9 +17,9 @@ export function CandidatesGridView({ candidates, onEdit, onDelete }: CandidatesG
 				>
 					{/* Image */}
 					<div className="aspect-square bg-gray-100 relative">
-						{candidate.image ? (
+						{candidate.imageUrl ? (
 							<img
-								src={candidate.image}
+								src={candidate.imageUrl}
 								alt={candidate.name}
 								className="w-full h-full object-cover"
 							/>

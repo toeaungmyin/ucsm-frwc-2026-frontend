@@ -64,8 +64,8 @@ const clientRateLimiter = rateLimit({
 
 // Voting specific: 30 votes per minute per IP (prevent spam)
 const votingRateLimiter = rateLimit({
-	windowMs: 60 * 1000,
-	max: 30,
+	windowMs: 10 * 1000,
+	max: 10,
 	message: { success: false, message: "Too many voting attempts, please slow down" },
 	standardHeaders: true,
 	legacyHeaders: false,

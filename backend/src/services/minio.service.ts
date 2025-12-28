@@ -163,13 +163,47 @@ export const fileExists = async (objectName: string): Promise<boolean> => {
 };
 
 /**
- * Get the public URL for a file (if bucket has public read policy)
- * Uses APP_URL for public access (e.g., https://ucsmfrwc.toeaungmyin.me/storage/...)
+ * Extract object path from a stored value (handles both object paths and legacy full URLs)
+ * @param storedValue - The value stored in DB (could be object path or full URL)
+ * @returns The clean object path for MinIO operations
  */
-export const getPublicUrl = (objectName: string): string => {
-	// APP_URL should be the public domain without protocol
-	const appUrl = env.APP_URL.replace(/^https?:\/\//, "");
-	return `https://${appUrl}/storage/${BUCKET_NAME}/${objectName}`;
+export const extractObjectPath = (storedValue: string): string => {
+	// If it's already a clean object path (doesn't start with http), return as-is
+	if (!storedValue.startsWith("http")) {
+		return storedValue;
+	}
+
+	// Handle legacy URLs like: https://domain/storage/bucket/path/to/file.ext
+	// Extract the path after /storage/bucket/
+	const match = storedValue.match(/\/storage\/[^/]+\/(.+)$/);
+	if (match) {
+		return match[1];
+	}
+
+	// Handle MinIO presigned URLs - extract object path from the URL path
+	try {
+		const url = new URL(storedValue);
+		// Remove leading slash and bucket name if present
+		const pathParts = url.pathname.split("/").filter(Boolean);
+		if (pathParts[0] === BUCKET_NAME) {
+			return pathParts.slice(1).join("/");
+		}
+		return pathParts.join("/");
+	} catch {
+		// If URL parsing fails, return as-is
+		return storedValue;
+	}
+};
+
+/**
+ * Get a temporary signed URL for a file from MinIO
+ * Handles both clean object paths and legacy full URLs stored in DB
+ * @param storedValue - The value stored in DB (object path or legacy URL)
+ * @param expirySeconds - URL expiry time in seconds (default: 24 hours)
+ */
+export const getPublicUrl = async (storedValue: string, expirySeconds: number = 86400): Promise<string> => {
+	const objectPath = extractObjectPath(storedValue);
+	return await minioClient.presignedGetObject(BUCKET_NAME, objectPath, expirySeconds);
 };
 
 /**

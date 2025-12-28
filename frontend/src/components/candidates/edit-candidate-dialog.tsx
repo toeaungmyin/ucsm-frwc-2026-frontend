@@ -29,7 +29,7 @@ export function EditCandidateDialog({
 					name: candidate.name,
 					category: candidate.category.name,
 				}}
-				currentImage={candidate.image}
+				currentImage={candidate.imageUrl}
 				categories={categories}
 				onSubmit={onSubmit}
 				onCancel={onClose}
