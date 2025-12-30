@@ -1,16 +1,18 @@
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { HiTicket, HiRefresh, HiTrash, HiPrinter } from "react-icons/hi";
+import { HiTicket, HiRefresh, HiTrash, HiPrinter, HiDownload, HiUpload } from "react-icons/hi";
 import { Route as dashboardRoute } from "../dashboard";
 import { ticketsApi } from "../../api/tickets.api";
 import type { Ticket } from "../../types";
+import type { ImportTicketsResult } from "../../api/tickets.api";
 import {
 	TicketsDataTable,
 	TicketsEmptyState,
 	GenerateTicketsDialog,
 	DeleteTicketDialog,
 	BulkDeleteDialog,
+	ImportTicketsDialog,
 } from "../../components/tickets";
 
 function TicketsPage() {
@@ -19,6 +21,8 @@ function TicketsPage() {
 	const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 	const [deletingTicket, setDeletingTicket] = useState<Ticket | null>(null);
 	const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+	const [importResult, setImportResult] = useState<ImportTicketsResult | null>(null);
 
 	// Fetch tickets
 	const {
@@ -59,6 +63,34 @@ function TicketsPage() {
 		},
 	});
 
+	// Export mutation
+	const exportMutation = useMutation({
+		mutationFn: () => ticketsApi.export(),
+		onSuccess: (response) => {
+			const exportData = response.data;
+			const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+				type: "application/json",
+			});
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `tickets-backup-${new Date().toISOString().split("T")[0]}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		},
+	});
+
+	// Import mutation
+	const importMutation = useMutation({
+		mutationFn: (data: { tickets: Array<{ serial: string }>; skipDuplicates: boolean }) => ticketsApi.import(data),
+		onSuccess: (response) => {
+			queryClient.invalidateQueries({ queryKey: ["tickets"] });
+			setImportResult(response.data);
+		},
+	});
+
 	const tickets = ticketsData?.data ?? [];
 
 	const handleGenerate = (quantity: number) => {
@@ -74,6 +106,20 @@ function TicketsPage() {
 		bulkDeleteMutation.mutate();
 	};
 
+	const handleExport = () => {
+		exportMutation.mutate();
+	};
+
+	const handleImport = (tickets: Array<{ serial: string }>, skipDuplicates: boolean) => {
+		importMutation.mutate({ tickets, skipDuplicates });
+	};
+
+	const handleCloseImport = () => {
+		setIsImportModalOpen(false);
+		setImportResult(null);
+		importMutation.reset();
+	};
+
 	return (
 		<div className="space-y-6">
 			{/* Page Header */}
@@ -82,7 +128,7 @@ function TicketsPage() {
 					<h1 className="text-2xl font-bold text-gray-900">Tickets</h1>
 					<p className="text-gray-500 mt-1">Generate and manage voting tickets</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 flex-wrap">
 					<button
 						onClick={() => refetch()}
 						className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors"
@@ -90,8 +136,23 @@ function TicketsPage() {
 						<HiRefresh className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`} />
 						Refresh
 					</button>
+					<button
+						onClick={() => setIsImportModalOpen(true)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors"
+					>
+						<HiUpload className="h-5 w-5" />
+						Import
+					</button>
 					{tickets.length > 0 && (
 						<>
+							<button
+								onClick={handleExport}
+								disabled={exportMutation.isPending}
+								className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-w-[120px] bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors disabled:opacity-50"
+							>
+								<HiDownload className={`h-5 w-5 ${exportMutation.isPending ? "animate-pulse" : ""}`} />
+								Export
+							</button>
 							<button
 								onClick={() => navigate({ to: "/dashboard/tickets/print" })}
 								className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors"
@@ -140,9 +201,7 @@ function TicketsPage() {
 							<div>
 								<p className="text-sm text-gray-500">Latest Generated</p>
 								<p className="text-sm font-medium text-gray-900">
-									{tickets.length > 0
-										? new Date(tickets[0].createdAt).toLocaleDateString()
-										: "N/A"}
+									{tickets.length > 0 ? new Date(tickets[0].createdAt).toLocaleDateString() : "N/A"}
 								</p>
 							</div>
 						</div>
@@ -215,6 +274,15 @@ function TicketsPage() {
 				onConfirm={handleBulkDelete}
 				isLoading={bulkDeleteMutation.isPending}
 				error={bulkDeleteMutation.error}
+			/>
+
+			<ImportTicketsDialog
+				isOpen={isImportModalOpen}
+				onClose={handleCloseImport}
+				onImport={handleImport}
+				isLoading={importMutation.isPending}
+				error={importMutation.error}
+				result={importResult}
 			/>
 		</div>
 	);

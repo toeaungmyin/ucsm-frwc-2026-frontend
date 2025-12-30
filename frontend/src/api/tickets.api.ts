@@ -5,6 +5,26 @@ export interface GenerateTicketsInput {
 	quantity: number;
 }
 
+export interface TicketExportData {
+	exportedAt: string;
+	totalCount: number;
+	tickets: Array<{
+		serial: string;
+		createdAt: string;
+	}>;
+}
+
+export interface ImportTicketsInput {
+	tickets: Array<{ serial: string }>;
+	skipDuplicates?: boolean;
+}
+
+export interface ImportTicketsResult {
+	imported: number;
+	skipped: number;
+	total: number;
+}
+
 export const ticketsApi = {
 	getAll: async (): Promise<ApiResponse<Ticket[]>> => {
 		const response = await api.get<ApiResponse<Ticket[]>>("/tickets");
@@ -28,6 +48,16 @@ export const ticketsApi = {
 
 	deleteAll: async (): Promise<ApiResponse<{ count: number }>> => {
 		const response = await api.delete<ApiResponse<{ count: number }>>("/tickets/bulk/all");
+		return response.data;
+	},
+
+	export: async (): Promise<ApiResponse<TicketExportData>> => {
+		const response = await api.get<ApiResponse<TicketExportData>>("/tickets/export");
+		return response.data;
+	},
+
+	import: async (data: ImportTicketsInput): Promise<ApiResponse<ImportTicketsResult>> => {
+		const response = await api.post<ApiResponse<ImportTicketsResult>>("/tickets/import", data);
 		return response.data;
 	},
 };
