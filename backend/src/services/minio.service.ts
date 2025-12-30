@@ -13,6 +13,19 @@ const minioClient = new Client({
 
 const BUCKET_NAME = env.MINIO_BUCKET;
 
+// Internal MinIO URL (used by the client for generating URLs)
+const INTERNAL_MINIO_URL = `${env.MINIO_USE_SSL === "true" ? "https" : "http"}://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
+
+/**
+ * Replace internal MinIO URL with public URL in presigned URLs
+ */
+const toPublicUrl = (presignedUrl: string): string => {
+	if (env.MINIO_PUBLIC_URL) {
+		return presignedUrl.replace(INTERNAL_MINIO_URL, env.MINIO_PUBLIC_URL);
+	}
+	return presignedUrl;
+};
+
 /**
  * Initialize MinIO bucket if it doesn't exist
  */
@@ -118,17 +131,16 @@ export const getPresignedUrl = async (
 	objectName: string,
 	expirySeconds: number = 3600
 ): Promise<string> => {
-	return await minioClient.presignedGetObject(BUCKET_NAME, objectName, expirySeconds);
+	const url = await minioClient.presignedGetObject(BUCKET_NAME, objectName, expirySeconds);
+	return toPublicUrl(url);
 };
 
 /**
  * Generate a presigned URL for file upload
  */
-export const getPresignedUploadUrl = async (
-	objectName: string,
-	expirySeconds: number = 3600
-): Promise<string> => {
-	return await minioClient.presignedPutObject(BUCKET_NAME, objectName, expirySeconds);
+export const getPresignedUploadUrl = async (objectName: string, expirySeconds: number = 3600): Promise<string> => {
+	const url = await minioClient.presignedPutObject(BUCKET_NAME, objectName, expirySeconds);
+	return toPublicUrl(url);
 };
 
 /**
@@ -203,7 +215,8 @@ export const extractObjectPath = (storedValue: string): string => {
  */
 export const getPublicUrl = async (storedValue: string, expirySeconds: number = 86400): Promise<string> => {
 	const objectPath = extractObjectPath(storedValue);
-	return await minioClient.presignedGetObject(BUCKET_NAME, objectPath, expirySeconds);
+	const url = await minioClient.presignedGetObject(BUCKET_NAME, objectPath, expirySeconds);
+	return toPublicUrl(url);
 };
 
 /**

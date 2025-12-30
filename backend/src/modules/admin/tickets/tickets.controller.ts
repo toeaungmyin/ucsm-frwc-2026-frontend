@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "@/config/index.js";
 import { sendSuccess, sendCreated } from "@/utils/index.js";
 import { AppError } from "@/middleware/index.js";
-import type { GenerateTicketsInput } from "./tickets.schema.js";
+import type { GenerateTicketsInput, ImportTicketsInput } from "./tickets.schema.js";
 
 // Helper to pad number with leading zeros (e.g., 1 -> "001")
 const padSerial = (num: number, length: number = 3): string => {
@@ -61,11 +61,7 @@ const ticketsController = {
 		}
 	},
 
-	show: async (
-		req: Request<{ serial: string }>,
-		res: Response,
-		next: NextFunction
-	): Promise<void> => {
+	show: async (req: Request<{ serial: string }>, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { serial } = req.params;
 
@@ -101,11 +97,7 @@ const ticketsController = {
 		}
 	},
 
-	destroy: async (
-		req: Request<{ serial: string }>,
-		res: Response,
-		next: NextFunction
-	): Promise<void> => {
+	destroy: async (req: Request<{ serial: string }>, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { serial } = req.params;
 
@@ -135,6 +127,96 @@ const ticketsController = {
 			sendSuccess(res, { count: result.count }, "All tickets deleted successfully");
 		} catch (error) {
 			console.log("Bulk tickets deletion error", error);
+			next(error);
+		}
+	},
+
+	export: async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const tickets = await prisma.ticket.findMany({
+				orderBy: { serial: "asc" },
+				select: {
+					serial: true,
+					createdAt: true,
+				},
+			});
+
+			const exportData = {
+				exportedAt: new Date().toISOString(),
+				totalCount: tickets.length,
+				tickets: tickets.map((t) => ({
+					serial: t.serial,
+					createdAt: t.createdAt.toISOString(),
+				})),
+			};
+
+			sendSuccess(res, exportData, "Tickets exported successfully");
+		} catch (error) {
+			console.log("Tickets export error", error);
+			next(error);
+		}
+	},
+
+	import: async (
+		req: Request<object, object, ImportTicketsInput>,
+		res: Response,
+		next: NextFunction
+	): Promise<void> => {
+		try {
+			const { tickets, skipDuplicates = true } = req.body;
+
+			if (!tickets || !Array.isArray(tickets) || tickets.length === 0) {
+				throw new AppError("No tickets provided for import", 400);
+			}
+
+			// Validate serial format for all tickets
+			const invalidSerials = tickets.filter((t) => !/^\d+$/.test(t.serial));
+			if (invalidSerials.length > 0) {
+				throw new AppError(
+					`Invalid serial format for tickets: ${invalidSerials.map((t) => t.serial).join(", ")}`,
+					400
+				);
+			}
+
+			// Check for existing tickets
+			const existingTickets = await prisma.ticket.findMany({
+				where: { serial: { in: tickets.map((t) => t.serial) } },
+				select: { serial: true },
+			});
+			const existingSerials = new Set(existingTickets.map((t) => t.serial));
+
+			// Filter out duplicates if skipDuplicates is true
+			const ticketsToImport = skipDuplicates ? tickets.filter((t) => !existingSerials.has(t.serial)) : tickets;
+
+			if (!skipDuplicates && existingSerials.size > 0) {
+				throw new AppError(`Duplicate tickets found: ${Array.from(existingSerials).join(", ")}`, 400);
+			}
+
+			if (ticketsToImport.length === 0) {
+				sendSuccess(
+					res,
+					{ imported: 0, skipped: tickets.length, total: tickets.length },
+					"All tickets already exist, nothing to import"
+				);
+				return;
+			}
+
+			// Import tickets
+			await prisma.ticket.createMany({
+				data: ticketsToImport.map((t) => ({ serial: t.serial })),
+				skipDuplicates: true,
+			});
+
+			const imported = ticketsToImport.length;
+			const skipped = tickets.length - imported;
+
+			sendCreated(
+				res,
+				{ imported, skipped, total: tickets.length },
+				`${imported} tickets imported successfully${skipped > 0 ? `, ${skipped} duplicates skipped` : ""}`
+			);
+		} catch (error) {
+			console.log("Tickets import error", error);
 			next(error);
 		}
 	},

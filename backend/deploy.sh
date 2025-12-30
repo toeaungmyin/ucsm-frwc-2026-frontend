@@ -201,6 +201,8 @@ remote_setup() {
         unzip -o ${ZIP_NAME} -d current > /dev/null
         
         cd current
+
+		cp .env.production .env
         
         # Stop existing containers
         if [ -f "docker-compose.yml" ]; then

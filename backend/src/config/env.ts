@@ -18,6 +18,8 @@ const envSchema = z.object({
 	MINIO_SECRET_KEY: z.string().default("minioadmin"),
 	MINIO_BUCKET: z.string().default("uploads"),
 	MINIO_USE_SSL: z.string().default("false"),
+	// Public URL for MinIO (used for generating accessible URLs from outside Docker)
+	MINIO_PUBLIC_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
