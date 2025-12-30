@@ -9,13 +9,14 @@ export interface TicketExportData {
 	exportedAt: string;
 	totalCount: number;
 	tickets: Array<{
+		id: string;
 		serial: string;
 		createdAt: string;
 	}>;
 }
 
 export interface ImportTicketsInput {
-	tickets: Array<{ serial: string }>;
+	tickets: Array<{ id: string; serial: string }>;
 	skipDuplicates?: boolean;
 }
 

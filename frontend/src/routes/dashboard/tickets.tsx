@@ -84,7 +84,8 @@ function TicketsPage() {
 
 	// Import mutation
 	const importMutation = useMutation({
-		mutationFn: (data: { tickets: Array<{ serial: string }>; skipDuplicates: boolean }) => ticketsApi.import(data),
+		mutationFn: (data: { tickets: Array<{ id: string; serial: string }>; skipDuplicates: boolean }) =>
+			ticketsApi.import(data),
 		onSuccess: (response) => {
 			queryClient.invalidateQueries({ queryKey: ["tickets"] });
 			setImportResult(response.data);
@@ -110,7 +111,7 @@ function TicketsPage() {
 		exportMutation.mutate();
 	};
 
-	const handleImport = (tickets: Array<{ serial: string }>, skipDuplicates: boolean) => {
+	const handleImport = (tickets: Array<{ id: string; serial: string }>, skipDuplicates: boolean) => {
 		importMutation.mutate({ tickets, skipDuplicates });
 	};
 

@@ -136,6 +136,7 @@ const ticketsController = {
 			const tickets = await prisma.ticket.findMany({
 				orderBy: { serial: "asc" },
 				select: {
+					id: true,
 					serial: true,
 					createdAt: true,
 				},
@@ -145,6 +146,7 @@ const ticketsController = {
 				exportedAt: new Date().toISOString(),
 				totalCount: tickets.length,
 				tickets: tickets.map((t) => ({
+					id: t.id,
 					serial: t.serial,
 					createdAt: t.createdAt.toISOString(),
 				})),
@@ -178,17 +180,22 @@ const ticketsController = {
 				);
 			}
 
-			// Check for existing tickets
+			// Check for existing tickets by both id and serial
 			const existingTickets = await prisma.ticket.findMany({
-				where: { serial: { in: tickets.map((t) => t.serial) } },
-				select: { serial: true },
+				where: {
+					OR: [{ id: { in: tickets.map((t) => t.id) } }, { serial: { in: tickets.map((t) => t.serial) } }],
+				},
+				select: { id: true, serial: true },
 			});
+			const existingIds = new Set(existingTickets.map((t) => t.id));
 			const existingSerials = new Set(existingTickets.map((t) => t.serial));
 
-			// Filter out duplicates if skipDuplicates is true
-			const ticketsToImport = skipDuplicates ? tickets.filter((t) => !existingSerials.has(t.serial)) : tickets;
+			// Filter out duplicates if skipDuplicates is true (check both id and serial)
+			const ticketsToImport = skipDuplicates
+				? tickets.filter((t) => !existingIds.has(t.id) && !existingSerials.has(t.serial))
+				: tickets;
 
-			if (!skipDuplicates && existingSerials.size > 0) {
+			if (!skipDuplicates && (existingIds.size > 0 || existingSerials.size > 0)) {
 				throw new AppError(`Duplicate tickets found: ${Array.from(existingSerials).join(", ")}`, 400);
 			}
 
@@ -201,9 +208,9 @@ const ticketsController = {
 				return;
 			}
 
-			// Import tickets
+			// Import tickets with their original IDs
 			await prisma.ticket.createMany({
-				data: ticketsToImport.map((t) => ({ serial: t.serial })),
+				data: ticketsToImport.map((t) => ({ id: t.id, serial: t.serial })),
 				skipDuplicates: true,
 			});
 

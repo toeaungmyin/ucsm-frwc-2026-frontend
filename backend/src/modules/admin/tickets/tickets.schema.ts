@@ -12,6 +12,7 @@ export const importTicketsSchema = z.object({
 	tickets: z
 		.array(
 			z.object({
+				id: z.string().uuid("Invalid ticket ID format"),
 				serial: z.string().regex(/^\d+$/, "Invalid ticket serial format"),
 			})
 		)

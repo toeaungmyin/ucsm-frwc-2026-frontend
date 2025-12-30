@@ -6,26 +6,19 @@ import type { TicketExportData, ImportTicketsResult } from "../../api/tickets.ap
 interface ImportTicketsDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onImport: (tickets: Array<{ serial: string }>, skipDuplicates: boolean) => void;
+	onImport: (tickets: Array<{ id: string; serial: string }>, skipDuplicates: boolean) => void;
 	isLoading: boolean;
 	error?: Error | null;
 	result?: ImportTicketsResult | null;
 }
 
 interface ParsedFile {
-	tickets: Array<{ serial: string }>;
+	tickets: Array<{ id: string; serial: string }>;
 	totalCount: number;
 	exportedAt?: string;
 }
 
-export function ImportTicketsDialog({
-	isOpen,
-	onClose,
-	onImport,
-	isLoading,
-	error,
-	result,
-}: ImportTicketsDialogProps) {
+export function ImportTicketsDialog({ isOpen, onClose, onImport, isLoading, error, result }: ImportTicketsDialogProps) {
 	const [parsedFile, setParsedFile] = useState<ParsedFile | null>(null);
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [skipDuplicates, setSkipDuplicates] = useState(true);
@@ -68,19 +61,24 @@ export function ImportTicketsDialog({
 					return;
 				}
 
-				// Validate ticket format
+				// Validate ticket format (id and serial are required)
 				const invalidTickets = data.tickets.filter(
-					(t) => !t.serial || typeof t.serial !== "string" || !/^\d+$/.test(t.serial)
+					(t) =>
+						!t.id ||
+						typeof t.id !== "string" ||
+						!t.serial ||
+						typeof t.serial !== "string" ||
+						!/^\d+$/.test(t.serial)
 				);
 				if (invalidTickets.length > 0) {
 					setParseError(
-						`Invalid ticket format found: ${invalidTickets.length} tickets have invalid serials`
+						`Invalid ticket format found: ${invalidTickets.length} tickets have invalid id or serial`
 					);
 					return;
 				}
 
 				setParsedFile({
-					tickets: data.tickets.map((t) => ({ serial: t.serial })),
+					tickets: data.tickets.map((t) => ({ id: t.id, serial: t.serial })),
 					totalCount: data.tickets.length,
 					exportedAt: data.exportedAt,
 				});
@@ -167,8 +165,8 @@ export function ImportTicketsDialog({
 							isDragOver
 								? "border-indigo-400 bg-indigo-50"
 								: parsedFile
-									? "border-green-300 bg-green-50"
-									: "border-gray-300 hover:border-indigo-400 hover:bg-gray-50"
+								? "border-green-300 bg-green-50"
+								: "border-gray-300 hover:border-indigo-400 hover:bg-gray-50"
 						}`}
 					>
 						<input
@@ -204,9 +202,7 @@ export function ImportTicketsDialog({
 						) : (
 							<div className="space-y-2">
 								<HiUpload className="h-12 w-12 text-gray-400 mx-auto" />
-								<p className="text-sm font-medium text-gray-700">
-									Click to upload or drag and drop
-								</p>
+								<p className="text-sm font-medium text-gray-700">Click to upload or drag and drop</p>
 								<p className="text-xs text-gray-500">JSON backup file only</p>
 							</div>
 						)}
