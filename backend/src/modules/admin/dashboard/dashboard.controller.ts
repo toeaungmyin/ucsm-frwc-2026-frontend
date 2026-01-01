@@ -54,34 +54,24 @@ const dashboardController = {
 	/**
 	 * Get dashboard statistics
 	 */
-	getStats: async (
-		_req: Request,
-		res: Response,
-		next: NextFunction
-	): Promise<void> => {
+	getStats: async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			// Get all counts in parallel for better performance
-			const [
-				categoriesTotal,
-				categoriesActive,
-				candidatesCount,
-				ticketsTotal,
-				ticketsUsed,
-				votesCount,
-			] = await Promise.all([
-				prisma.category.count(),
-				prisma.category.count({ where: { isActive: true } }),
-				prisma.candidate.count(),
-				prisma.ticket.count(),
-				prisma.ticket.count({
-					where: {
-						votes: {
-							some: {},
+			const [categoriesTotal, categoriesActive, candidatesCount, ticketsTotal, ticketsUsed, votesCount] =
+				await Promise.all([
+					prisma.category.count(),
+					prisma.category.count({ where: { isActive: true } }),
+					prisma.candidate.count(),
+					prisma.ticket.count(),
+					prisma.ticket.count({
+						where: {
+							votes: {
+								some: {},
+							},
 						},
-					},
-				}),
-				prisma.vote.count(),
-			]);
+					}),
+					prisma.vote.count(),
+				]);
 
 			const stats: DashboardStats = {
 				categories: {
@@ -105,41 +95,36 @@ const dashboardController = {
 	/**
 	 * Get recent activities
 	 */
-	getRecentActivities: async (
-		req: Request,
-		res: Response,
-		next: NextFunction
-	): Promise<void> => {
+	getRecentActivities: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const limit = Math.min(Number(req.query.limit) || 10, 50);
 
 			// Fetch recent items from each model in parallel
-			const [recentVotes, recentTickets, recentCandidates, recentCategories] =
-				await Promise.all([
-					prisma.vote.findMany({
-						take: limit,
-						orderBy: { createdAt: "desc" },
-						include: {
-							candidate: { select: { name: true } },
-							category: { select: { name: true } },
-						},
-					}),
-					prisma.ticket.findMany({
-						take: limit,
-						orderBy: { createdAt: "desc" },
-						select: { id: true, serial: true, createdAt: true },
-					}),
-					prisma.candidate.findMany({
-						take: limit,
-						orderBy: { createdAt: "desc" },
-						include: { category: { select: { name: true } } },
-					}),
-					prisma.category.findMany({
-						take: limit,
-						orderBy: { createdAt: "desc" },
-						select: { id: true, name: true, createdAt: true },
-					}),
-				]);
+			const [recentVotes, recentTickets, recentCandidates, recentCategories] = await Promise.all([
+				prisma.vote.findMany({
+					take: limit,
+					orderBy: { createdAt: "desc" },
+					include: {
+						candidate: { select: { name: true } },
+						category: { select: { name: true } },
+					},
+				}),
+				prisma.ticket.findMany({
+					take: limit,
+					orderBy: { createdAt: "desc" },
+					select: { id: true, serial: true, createdAt: true },
+				}),
+				prisma.candidate.findMany({
+					take: limit,
+					orderBy: { createdAt: "desc" },
+					include: { category: { select: { name: true } } },
+				}),
+				prisma.category.findMany({
+					take: limit,
+					orderBy: { createdAt: "desc" },
+					select: { id: true, name: true, createdAt: true },
+				}),
+			]);
 
 			// Transform into unified activity format
 			const activities: Activity[] = [
@@ -174,15 +159,29 @@ const dashboardController = {
 			];
 
 			// Sort by timestamp (newest first) and limit
-			activities.sort(
-				(a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-			);
+			activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 			const limitedActivities = activities.slice(0, limit);
+
+			sendSuccess(res, limitedActivities, "Recent activities retrieved successfully");
+		} catch (error) {
+			next(error);
+		}
+	},
+
+	/**
+	 * Reset all votes (dangerous action)
+	 */
+	resetAllVotes: async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			// Delete all votes
+			const result = await prisma.vote.deleteMany({});
 
 			sendSuccess(
 				res,
-				limitedActivities,
-				"Recent activities retrieved successfully"
+				{
+					deletedCount: result.count,
+				},
+				`Successfully reset ${result.count} votes`
 			);
 		} catch (error) {
 			next(error);
@@ -192,11 +191,7 @@ const dashboardController = {
 	/**
 	 * Get voting statistics by category and candidate
 	 */
-	getVotingStatistics: async (
-		_req: Request,
-		res: Response,
-		next: NextFunction
-	): Promise<void> => {
+	getVotingStatistics: async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			// Get all categories with their candidates and vote counts
 			const categories = await prisma.category.findMany({
@@ -234,13 +229,10 @@ const dashboardController = {
 					);
 
 					// Sort candidates by vote count (descending)
-					const sortedCandidates = [...category.candidates].sort(
-						(a, b) => b._count.votes - a._count.votes
-					);
+					const sortedCandidates = [...category.candidates].sort((a, b) => b._count.votes - a._count.votes);
 
 					// Find highest vote count
-					const maxVotes =
-						sortedCandidates.length > 0 ? sortedCandidates[0]._count.votes : 0;
+					const maxVotes = sortedCandidates.length > 0 ? sortedCandidates[0]._count.votes : 0;
 
 					const candidateStats: CandidateVoteStats[] = await Promise.all(
 						sortedCandidates.map(async (candidate) => ({

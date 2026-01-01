@@ -16,5 +16,8 @@ router.get("/activities", dashboardController.getRecentActivities);
 // Get voting statistics
 router.get("/voting-stats", dashboardController.getVotingStatistics);
 
+// Reset all votes (dangerous action)
+router.delete("/votes", dashboardController.resetAllVotes);
+
 export default router;
 

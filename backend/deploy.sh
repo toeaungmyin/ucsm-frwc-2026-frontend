@@ -203,12 +203,18 @@ remote_setup() {
         cd current
 
 		cp .env.production .env
+		cp docker-compose.prod.yml docker-compose.yml
         
         # Stop existing containers
         if [ -f "docker-compose.yml" ]; then
             echo "Stopping existing containers..."
             sudo docker compose down 2>/dev/null || true
         fi
+        
+        # Clean up Docker to free disk space
+        echo "Cleaning up Docker resources..."
+        sudo docker system prune -af --volumes 2>/dev/null || true
+        sudo docker builder prune -af 2>/dev/null || true
         
         # Build and start Docker containers
         echo "Building and starting Docker containers..."
