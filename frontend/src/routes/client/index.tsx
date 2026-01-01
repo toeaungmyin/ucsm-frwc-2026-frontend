@@ -1,13 +1,13 @@
 import { createRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { rootRoute } from "../__root";
 import { clientCategoriesApi, clientConfigApi, clientTicketsApi, type ClientCategory } from "../../api/client";
-import { 
-	CountdownDialog, 
-	BubbleBackground, 
-	TicketScanDialog, 
-	PromoVideoModal, 
+import {
+	CountdownDialog,
+	BubbleBackground,
+	TicketScanDialog,
+	PromoVideoModal,
 	animationStyles,
 	CategoriesGridSkeleton,
 	ErrorState,
@@ -29,9 +29,8 @@ function ClientHomePage() {
 		return !localStorage.getItem("promo-video-seen");
 	});
 	const [authError, setAuthError] = useState<string | null>(null);
-	const hasAttemptedAuth = useRef(false);
 
-	const { isAuthenticated, setAuth, ticket } = useVoterStore();
+	const { isAuthenticated, setAuth, ticket, logout } = useVoterStore();
 
 	// Show scan dialog only when user clicks the scan button (not on page load)
 	const [showScanDialog, setShowScanDialog] = useState(false);
@@ -53,19 +52,35 @@ function ClientHomePage() {
 
 	// Handle ticket authentication on mount (from URL param)
 	useEffect(() => {
-		if (ticketParam && !isAuthenticated && !hasAttemptedAuth.current) {
-			hasAttemptedAuth.current = true;
-			authenticateTicket.mutate(ticketParam);
+		// Skip if no ticket param or already authenticating
+		if (!ticketParam || authenticateTicket.isPending) return;
+
+		// If the scanned ticket is the same as current, skip and clean URL
+		if (isAuthenticated && ticket?.id === ticketParam) {
+			navigate({ to: "/", search: { ticket: undefined }, replace: true });
+			return;
 		}
-	}, [ticketParam, isAuthenticated, authenticateTicket]);
+
+		// If authenticated with a different ticket, logout first
+		if (isAuthenticated && ticket?.id !== ticketParam) {
+			logout();
+		}
+
+		// Authenticate the new ticket
+		authenticateTicket.mutate(ticketParam);
+	}, [ticketParam, isAuthenticated, ticket?.id, authenticateTicket, navigate, logout]);
 
 	// Handle scan success from dialog
 	const handleScanSuccess = useCallback(
 		(ticketId: string) => {
 			setAuthError(null);
+			// Logout old ticket if authenticated with a different one
+			if (isAuthenticated && ticket?.id !== ticketId) {
+				logout();
+			}
 			authenticateTicket.mutate(ticketId);
 		},
-		[authenticateTicket]
+		[authenticateTicket, isAuthenticated, ticket?.id, logout]
 	);
 
 	const {

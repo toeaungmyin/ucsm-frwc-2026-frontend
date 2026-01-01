@@ -112,6 +112,24 @@ export function TicketsDataTable({ tickets, onDelete }: TicketsDataTableProps) {
 								<td className="px-6 py-4 text-sm text-gray-500">
 									{new Date(ticket.createdAt).toLocaleString()}
 								</td>
+								<td className="px-6 py-4 text-sm text-gray-500">
+									<div className="flex items-center gap-2">
+										<code className="px-3 py-1.5 bg-linear-to-r from-indigo-50 to-purple-50 text-indigo-700 font-mono text-sm rounded-lg border border-indigo-200">
+											{ticket.id}
+										</code>
+										<button
+											onClick={() => handleCopy(ticket.id)}
+											className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+											title="Copy to clipboard"
+										>
+											{copiedId === ticket.id ? (
+												<HiCheck className="h-4 w-4 text-green-500" />
+											) : (
+												<HiClipboardCopy className="h-4 w-4" />
+											)}
+										</button>
+									</div>
+								</td>
 								<td className="px-6 py-4">
 									<div className="flex items-center justify-end">
 										<button
