@@ -112,6 +112,7 @@ interface CandidateCardProps {
 	isVoted?: boolean;
 	isVoting?: boolean;
 	hasVotedInCategory?: boolean;
+	categoryName?: string;
 	onVote?: (candidateId: string) => void;
 	onCancelVote?: (candidateId: string) => void;
 	onAuthRequired?: () => void;
@@ -123,6 +124,7 @@ export function CandidateCard({
 	isVoted = false,
 	isVoting = false,
 	hasVotedInCategory = false,
+	categoryName = "",
 	onVote,
 	onCancelVote,
 	onAuthRequired,
@@ -135,6 +137,9 @@ export function CandidateCard({
 	const [imgError, setImgError] = useState(false);
 	const lastTapRef = useRef<number>(0);
 	const cardRef = useRef<HTMLDivElement>(null);
+
+	const normalizedCategoryName = categoryName.toUpperCase();
+	const isGroup = normalizedCategoryName === "BEST SINGER" || normalizedCategoryName === "BEST PERFORMANCE";
 
 	const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
 		// Prevent actions while voting is in progress
@@ -201,7 +206,11 @@ export function CandidateCard({
 			{/* Photo Section - Tappable */}
 			<div className="relative cursor-pointer select-none" onClick={handleDoubleTap}>
 				{/* Image Container */}
-				<div className="relative w-full aspect-3/4 bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl">
+				<div
+					className={`relative w-full ${
+						isGroup ? "aspect-square" : "aspect-3/4"
+					} bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl`}
+				>
 					{candidate.imageUrl && !imgError ? (
 						<>
 							{/* Loading skeleton */}

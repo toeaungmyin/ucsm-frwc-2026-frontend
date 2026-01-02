@@ -200,6 +200,7 @@ function CategoryDetailPage() {
 								isVoted={votedCandidateId === candidate.id}
 								isVoting={isVoting}
 								hasVotedInCategory={hasVotedInCategory}
+								categoryName={data?.category?.name}
 								onVote={handleVote}
 								onCancelVote={handleCancelVote}
 								onAuthRequired={handleAuthRequired}
