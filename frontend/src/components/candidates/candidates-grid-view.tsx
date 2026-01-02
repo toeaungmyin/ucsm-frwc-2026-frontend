@@ -18,11 +18,7 @@ export function CandidatesGridView({ candidates, onEdit, onDelete }: CandidatesG
 					{/* Image */}
 					<div className="aspect-square bg-gray-100 relative">
 						{candidate.imageUrl ? (
-							<img
-								src={candidate.imageUrl}
-								alt={candidate.name}
-								className="w-full h-full object-cover"
-							/>
+							<img src={candidate.imageUrl} alt={candidate.name} className="w-full h-full object-cover" />
 						) : (
 							<div className="w-full h-full flex items-center justify-center">
 								<HiUser className="w-20 h-20 text-gray-300" />
@@ -44,9 +40,7 @@ export function CandidatesGridView({ candidates, onEdit, onDelete }: CandidatesG
 
 					{/* Content */}
 					<div className="p-4">
-						<h3 className="font-semibold text-gray-900 text-lg capitalize truncate">
-							{candidate.name}
-						</h3>
+						<h3 className="font-semibold text-gray-900 text-lg capitalize truncate">{candidate.name}</h3>
 						<p className="text-sm text-gray-500 mt-1">
 							Added {new Date(candidate.createdAt).toLocaleDateString()}
 						</p>

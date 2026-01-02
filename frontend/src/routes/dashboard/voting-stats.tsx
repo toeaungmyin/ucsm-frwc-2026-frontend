@@ -1,7 +1,7 @@
 import { createRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { HiChartBar, HiRefresh, HiUsers, HiTicket, HiStar, HiBadgeCheck } from "react-icons/hi";
+import { HiChartBar, HiRefresh, HiUsers, HiTicket, HiStar, HiBadgeCheck, HiTrash, HiExclamation } from "react-icons/hi";
 import { Route as dashboardRoute } from "../dashboard";
 import { dashboardApi, type CategoryVoteStats, type CandidateVoteStats } from "../../api/dashboard.api";
 
@@ -99,7 +99,7 @@ function CompactCandidateRow({ candidate, rank }: { candidate: CandidateVoteStat
 
 			{/* Avatar */}
 			{candidate.imageUrl && !imgError ? (
-				<div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+				<div className="relative w-8 h-8 rounded-md overflow-hidden flex-shrink-0">
 					{imgLoading && <div className="absolute inset-0 bg-gray-200 animate-pulse" />}
 					<img
 						src={candidate.imageUrl}
@@ -144,8 +144,11 @@ const REFRESH_OPTIONS = [
 ];
 
 function VotingStatsPage() {
+	const queryClient = useQueryClient();
 	const [refreshInterval, setRefreshInterval] = useState(10000);
 	const [countdown, setCountdown] = useState(10);
+	const [showResetModal, setShowResetModal] = useState(false);
+	const [confirmText, setConfirmText] = useState("");
 
 	const { data, isLoading, isError, refetch, isFetching, dataUpdatedAt } = useQuery({
 		queryKey: ["voting-statistics"],
@@ -154,6 +157,19 @@ function VotingStatsPage() {
 			return response.data;
 		},
 		refetchInterval: refreshInterval || false,
+	});
+
+	const resetVotesMutation = useMutation({
+		mutationFn: dashboardApi.resetAllVotes,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["voting-statistics"] });
+			queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+			setShowResetModal(false);
+			setConfirmText("");
+		},
+		onError: () => {
+			alert("Failed to reset votes. Please try again.");
+		},
 	});
 
 	// Countdown timer - uses dataUpdatedAt to calculate remaining time
@@ -227,6 +243,14 @@ function VotingStatsPage() {
 						<HiRefresh className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
 						Refresh
 					</button>
+					{/* Reset Votes Button */}
+					<button
+						onClick={() => setShowResetModal(true)}
+						className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+					>
+						<HiTrash className="h-4 w-4" />
+						<span className="hidden sm:inline">Reset Votes</span>
+					</button>
 				</div>
 			</div>
 
@@ -281,8 +305,8 @@ function VotingStatsPage() {
 
 			{/* Loading State */}
 			{isLoading && (
-				<div className="space-y-6">
-					{[1, 2].map((i) => (
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					{[1, 2, 3, 4].map((i) => (
 						<div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
 							<div className="flex items-center gap-3 mb-6">
 								<div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse" />
@@ -346,6 +370,64 @@ function VotingStatsPage() {
 						</div>
 					)}
 				</>
+			)}
+
+			{/* Reset Votes Confirmation Modal */}
+			{showResetModal && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+					<div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+						<div className="flex items-center gap-3 mb-4">
+							<div className="p-3 bg-red-100 rounded-full">
+								<HiExclamation className="h-6 w-6 text-red-600" />
+							</div>
+							<div>
+								<h3 className="text-lg font-semibold text-gray-900">Reset All Votes</h3>
+								<p className="text-sm text-gray-500">This action cannot be undone</p>
+							</div>
+						</div>
+
+						<div className="mb-6">
+							<p className="text-gray-600 mb-4">
+								This will permanently delete{" "}
+								<strong className="text-red-600">{data?.totalVotes ?? 0} votes</strong> from the system.
+								All voting progress will be lost.
+							</p>
+							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+								<p className="text-sm text-yellow-800">
+									<strong>Warning:</strong> This will reset votes for all categories and all tickets.
+								</p>
+							</div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								Type <span className="font-mono bg-gray-100 px-1 rounded">RESET</span> to confirm:
+							</label>
+							<input
+								type="text"
+								value={confirmText}
+								onChange={(e) => setConfirmText(e.target.value)}
+								className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+							/>
+						</div>
+
+						<div className="flex gap-3">
+							<button
+								onClick={() => {
+									setShowResetModal(false);
+									setConfirmText("");
+								}}
+								className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={() => resetVotesMutation.mutate()}
+								disabled={confirmText !== "RESET" || resetVotesMutation.isPending}
+								className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{resetVotesMutation.isPending ? "Resetting..." : "Reset All Votes"}
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);

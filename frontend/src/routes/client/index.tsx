@@ -331,6 +331,7 @@ function CategoryCard({
 	const navigate = useNavigate();
 	const [isPressed, setIsPressed] = useState(false);
 	const [imgError, setImgError] = useState(false);
+	const [imgLoading, setImgLoading] = useState(true);
 
 	const handleClick = () => {
 		setIsPressed(true);
@@ -358,25 +359,34 @@ function CategoryCard({
 		>
 			{/* Content wrapper */}
 			<div className="relative">
-				{/* Icon container with gradient background */}
-				<div className="relative w-full h-20 rounded-xl bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 mb-2 flex items-center justify-center overflow-hidden group-hover:from-purple-200 group-hover:via-violet-100 group-hover:to-fuchsia-200 transition-all duration-300">
-					{/* Animated decorative circles */}
-					<div className="absolute -top-3 -right-3 w-10 h-10 bg-purple-200/50 rounded-full group-hover:scale-150 group-hover:bg-purple-300/60 transition-all duration-500" />
-					<div className="absolute -bottom-2 -left-2 w-8 h-8 bg-violet-200/50 rounded-full group-hover:scale-150 group-hover:bg-violet-300/60 transition-all duration-500 delay-75" />
-					<div className="absolute top-1/2 -right-1 w-4 h-4 bg-fuchsia-200/40 rounded-full opacity-0 group-hover:opacity-100 group-hover:scale-125 transition-all duration-300 delay-150" />
-					<div className="absolute -top-1 left-1/3 w-3 h-3 bg-purple-300/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-400 delay-200" />
-
-					{/* Icon with hover animation */}
+				{/* Icon container - full width image */}
+				<div className="relative w-full aspect-square rounded-xl overflow-hidden mb-2">
 					{category.iconUrl && !imgError ? (
-						<img
-							src={category.iconUrl}
-							alt={category.name}
-							className="w-12 h-12 rounded-xl object-cover shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 transition-all duration-300"
-							onError={() => setImgError(true)}
-						/>
+						<>
+							{/* Skeleton while loading */}
+							{imgLoading && (
+								<div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-violet-100 to-fuchsia-200 animate-pulse" />
+							)}
+							<img
+								src={category.iconUrl}
+								alt={category.name}
+								className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+									imgLoading ? "opacity-0" : "opacity-100"
+								}`}
+								onLoad={() => setImgLoading(false)}
+								onError={() => {
+									setImgError(true);
+									setImgLoading(false);
+								}}
+							/>
+						</>
 					) : (
-						<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md relative z-10 group-hover:scale-110 group-hover:shadow-xl group-hover:from-purple-600 group-hover:to-violet-700 group-hover:rotate-3 transition-all duration-300">
-							<span className="text-lg font-bold text-white group-hover:scale-110 transition-transform duration-300">
+						/* Fallback with gradient and initial */
+						<div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-500 flex items-center justify-center group-hover:from-purple-600 group-hover:via-violet-600 group-hover:to-fuchsia-600 transition-all duration-300">
+							{/* Decorative circles */}
+							<div className="absolute -top-2 -right-2 w-12 h-12 bg-white/10 rounded-full" />
+							<div className="absolute -bottom-3 -left-3 w-10 h-10 bg-white/10 rounded-full" />
+							<span className="text-3xl font-black text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300">
 								{category.name.charAt(0).toUpperCase()}
 							</span>
 						</div>

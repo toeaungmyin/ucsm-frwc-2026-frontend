@@ -48,6 +48,10 @@ export interface VotingStatistics {
 	categories: CategoryVoteStats[];
 }
 
+export interface ResetVotesResponse {
+	deletedCount: number;
+}
+
 export const dashboardApi = {
 	getStats: async (): Promise<ApiResponse<DashboardStats>> => {
 		const response = await api.get<ApiResponse<DashboardStats>>("/dashboard/stats");
@@ -61,6 +65,11 @@ export const dashboardApi = {
 
 	getVotingStatistics: async (): Promise<ApiResponse<VotingStatistics>> => {
 		const response = await api.get<ApiResponse<VotingStatistics>>("/dashboard/voting-stats");
+		return response.data;
+	},
+
+	resetAllVotes: async (): Promise<ApiResponse<ResetVotesResponse>> => {
+		const response = await api.delete<ApiResponse<ResetVotesResponse>>("/dashboard/votes");
 		return response.data;
 	},
 };

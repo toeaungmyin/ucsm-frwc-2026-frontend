@@ -27,8 +27,11 @@ export function DeleteCandidateDialog({
 				title="Delete Candidate"
 				message={
 					<>
-						Are you sure you want to delete <strong>"{candidate.name}"</strong> (
-						{candidate.nomineeId})? This action cannot be undone.
+						Are you sure you want to delete{" "}
+						<strong>
+							"{candidate.nomineeId}. {candidate.name}"
+						</strong>{" "}
+						? This action cannot be undone.
 					</>
 				}
 				confirmLabel="Delete"
