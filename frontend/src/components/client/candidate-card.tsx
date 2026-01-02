@@ -201,7 +201,7 @@ export function CandidateCard({
 			{/* Photo Section - Tappable */}
 			<div className="relative cursor-pointer select-none" onClick={handleDoubleTap}>
 				{/* Image Container */}
-				<div className="relative w-full aspect-square bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl">
+				<div className="relative w-full aspect-3/4 bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl">
 					{candidate.imageUrl && !imgError ? (
 						<>
 							{/* Loading skeleton */}
