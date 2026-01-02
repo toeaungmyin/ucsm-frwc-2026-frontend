@@ -208,7 +208,7 @@ export function CandidateCard({
 				{/* Image Container */}
 				<div
 					className={`relative w-full ${
-						isGroup ? "aspect-square " : "aspect-3/4"
+						!isGroup && "aspect-3/4"
 					} bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl`}
 				>
 					{candidate.imageUrl && !imgError ? (
