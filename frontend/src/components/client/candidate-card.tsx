@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import type { ClientCandidate } from "../../api/client";
 
 // Animations
@@ -86,6 +87,34 @@ const cardStyles = `
 	0% { transform: scale(0); opacity: 0.5; }
 	100% { transform: scale(4); opacity: 0; }
 }
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes fadeOut {
+	from { opacity: 1; }
+	to { opacity: 0; }
+}
+@keyframes zoomIn {
+	from { 
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	to { 
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+@keyframes zoomOut {
+	from { 
+		opacity: 1;
+		transform: scale(1);
+	}
+	to { 
+		opacity: 0;
+		transform: scale(0.8);
+	}
+}
 .glass-shimmer {
 	animation: shimmer 3s ease-in-out infinite;
 }
@@ -103,6 +132,18 @@ const cardStyles = `
 }
 .card-voted {
 	animation: votedGlow 2s ease-in-out infinite;
+}
+.fullscreen-backdrop-enter {
+	animation: fadeIn 0.2s ease-out forwards;
+}
+.fullscreen-backdrop-exit {
+	animation: fadeOut 0.2s ease-out forwards;
+}
+.fullscreen-image-enter {
+	animation: zoomIn 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.fullscreen-image-exit {
+	animation: zoomOut 0.2s ease-out forwards;
 }
 `;
 
@@ -135,20 +176,61 @@ export function CandidateCard({
 	const [ripplePos, setRipplePos] = useState<{ x: number; y: number } | null>(null);
 	const [imgLoading, setImgLoading] = useState(true);
 	const [imgError, setImgError] = useState(false);
+	const [showFullscreen, setShowFullscreen] = useState(false);
+	const [isClosing, setIsClosing] = useState(false);
 	const lastTapRef = useRef<number>(0);
+	const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
+
+	const closeFullscreen = useCallback(() => {
+		setIsClosing(true);
+		setTimeout(() => {
+			setShowFullscreen(false);
+			setIsClosing(false);
+		}, 200);
+	}, []);
+
+	const openFullscreen = useCallback(() => {
+		if (candidate.imageUrl && !imgError) {
+			setShowFullscreen(true);
+		}
+	}, [candidate.imageUrl, imgError]);
+
+	// Close fullscreen on escape key
+	useEffect(() => {
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && showFullscreen) {
+				closeFullscreen();
+			}
+		};
+		if (showFullscreen) {
+			document.addEventListener("keydown", handleEscape);
+			document.body.style.overflow = "hidden";
+		}
+		return () => {
+			document.removeEventListener("keydown", handleEscape);
+			document.body.style.overflow = "";
+		};
+	}, [showFullscreen, closeFullscreen]);
 
 	const normalizedCategoryName = categoryName.toUpperCase();
 	const isGroup = normalizedCategoryName === "BEST SINGER" || normalizedCategoryName === "BEST PERFORMANCE";
 
-	const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
+	const handleImageClick = (e: React.MouseEvent | React.TouchEvent) => {
 		// Prevent actions while voting is in progress
 		if (isVoting) return;
 
 		const now = Date.now();
 		const DOUBLE_TAP_DELAY = 300;
 
+		// Clear any pending single click timeout
+		if (clickTimeoutRef.current) {
+			clearTimeout(clickTimeoutRef.current);
+			clickTimeoutRef.current = null;
+		}
+
 		if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+			// Double tap detected - handle voting
 			// Get ripple position
 			if (cardRef.current) {
 				const rect = cardRef.current.getBoundingClientRect();
@@ -189,6 +271,12 @@ export function CandidateCard({
 					onVote(candidate.id);
 				}
 			}
+		} else {
+			// Single tap - wait to see if it's a double tap
+			clickTimeoutRef.current = setTimeout(() => {
+				openFullscreen();
+				clickTimeoutRef.current = null;
+			}, DOUBLE_TAP_DELAY);
 		}
 
 		lastTapRef.current = now;
@@ -204,7 +292,7 @@ export function CandidateCard({
 			<style>{cardStyles}</style>
 
 			{/* Photo Section - Tappable */}
-			<div className="relative cursor-pointer select-none" onClick={handleDoubleTap}>
+			<div className="relative cursor-pointer select-none" onClick={handleImageClick}>
 				{/* Image Container */}
 				<div
 					className={`relative w-full ${
@@ -386,6 +474,82 @@ export function CandidateCard({
 					)}
 				</p>
 			</div>
+
+			{/* Fullscreen Image Modal */}
+			{showFullscreen &&
+				createPortal(
+					<div
+						className={`fixed inset-0 z-[9999] flex items-center justify-center ${
+							isClosing ? "fullscreen-backdrop-exit" : "fullscreen-backdrop-enter"
+						}`}
+						onClick={closeFullscreen}
+					>
+						{/* Backdrop */}
+						<div className="absolute inset-0 bg-black/95" />
+
+						{/* Close button */}
+						<button
+							onClick={closeFullscreen}
+							className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+							aria-label="Close"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								strokeWidth={2}
+								stroke="currentColor"
+								className="w-6 h-6 text-white"
+							>
+								<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+
+						{/* Candidate info header */}
+						<div className="absolute top-4 left-4 z-10 flex items-center gap-3">
+							<div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
+								<span className="text-purple-50 text-xl font-bold">{candidate.nomineeId}</span>
+							</div>
+							<span className="text-white font-semibold text-lg">{candidate.name}</span>
+						</div>
+
+						{/* Image container */}
+						<div
+							className={`relative max-w-[90vw] max-h-[85vh] ${
+								isClosing ? "fullscreen-image-exit" : "fullscreen-image-enter"
+							}`}
+							onClick={(e) => e.stopPropagation()}
+						>
+							<img
+								src={candidate.imageUrl!}
+								alt={candidate.name}
+								className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+								draggable={false}
+							/>
+
+							{/* Voted badge in fullscreen */}
+							{isVoted && (
+								<div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-red-500/90 backdrop-blur-sm px-4 py-2 rounded-full">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 24 24"
+										fill="currentColor"
+										className="w-5 h-5 text-white"
+									>
+										<path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+									</svg>
+									<span className="text-white text-sm font-medium">You voted for this candidate</span>
+								</div>
+							)}
+						</div>
+
+						{/* Hint text */}
+						<div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-sm">
+							{!isVoted && "Click anywhere to close"}
+						</div>
+					</div>,
+					document.body
+				)}
 		</div>
 	);
 }
