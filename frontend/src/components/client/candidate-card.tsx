@@ -208,7 +208,7 @@ export function CandidateCard({
 				{/* Image Container */}
 				<div
 					className={`relative w-full ${
-						isGroup ? "aspect-square" : "aspect-3/4"
+						isGroup ? "aspect-square " : "aspect-3/4"
 					} bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 overflow-hidden rounded-2xl`}
 				>
 					{candidate.imageUrl && !imgError ? (
@@ -227,7 +227,8 @@ export function CandidateCard({
 								alt={candidate.name}
 								className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${
 									imgLoading ? "opacity-0" : "opacity-100"
-								}`}
+								} ${isGroup ? "object-contain" : "object-cover"}
+								`}
 								draggable={false}
 								onLoad={() => setImgLoading(false)}
 								onError={() => {
