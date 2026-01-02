@@ -225,9 +225,9 @@ export function CandidateCard({
 							<img
 								src={candidate.imageUrl}
 								alt={candidate.name}
-								className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${
+								className={`w-full object-cover group-hover:scale-105 transition-all duration-500 ${
 									imgLoading ? "opacity-0" : "opacity-100"
-								} ${isGroup ? "object-contain" : "object-cover"}
+								} ${isGroup ? "object-contain" : "object-cover h-full"}
 								`}
 								draggable={false}
 								onLoad={() => setImgLoading(false)}
