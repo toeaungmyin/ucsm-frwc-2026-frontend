@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { IconUpload } from "../ui/icon-upload";
 import type { Category } from "../../types";
+import { compressImage } from "../../utils/image-compression";
 
 const candidateSchema = z.object({
 	nomineeId: z.string().min(1, "Nominee ID is required"),
@@ -35,6 +36,7 @@ export function CandidateForm({
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [removeImage, setRemoveImage] = useState(false);
+	const [isCompressing, setIsCompressing] = useState(false);
 
 	const {
 		register,
@@ -52,18 +54,40 @@ export function CandidateForm({
 
 	const activeCategories = categories.filter((cat) => cat.isActive);
 
-	const handleFileSelect = (file: File | null) => {
-		setImageFile(file);
+	const handleFileSelect = async (file: File | null) => {
+		if (!file) {
+			setImageFile(null);
+			setImagePreview(null);
+			setRemoveImage(false);
+			return;
+		}
+
+		setIsCompressing(true);
 		setRemoveImage(false);
 
-		if (file) {
+		try {
+			// Compress image to max 1MB
+			const compressedFile = await compressImage(file, 1024 * 1024); // 1MB
+
+			setImageFile(compressedFile);
+
+			// Create preview from compressed file
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				setImagePreview(e.target?.result as string);
+			};
+			reader.readAsDataURL(compressedFile);
+		} catch (error) {
+			console.error("Error compressing image:", error);
+			// Fallback to original file if compression fails
+			setImageFile(file);
 			const reader = new FileReader();
 			reader.onload = (e) => {
 				setImagePreview(e.target?.result as string);
 			};
 			reader.readAsDataURL(file);
-		} else {
-			setImagePreview(null);
+		} finally {
+			setIsCompressing(false);
 		}
 	};
 
@@ -82,12 +106,14 @@ export function CandidateForm({
 			{/* Image Upload */}
 			<IconUpload
 				label="Photo"
-				hint="Upload candidate photo. PNG, JPG, WebP. Max 5MB."
+				hint="Upload candidate photo. PNG, JPG, WebP. Will be compressed to max 1MB."
 				currentIcon={removeImage ? null : currentImage}
 				previewUrl={imagePreview}
 				onFileSelect={handleFileSelect}
 				onRemove={currentImage ? handleRemoveImage : undefined}
+				disabled={isCompressing}
 			/>
+			{isCompressing && <p className="text-sm text-blue-600 mt-1">Compressing image...</p>}
 
 			{/* Nominee ID Input */}
 			<div>

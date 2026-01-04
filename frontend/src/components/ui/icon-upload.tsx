@@ -10,6 +10,7 @@ interface IconUploadProps {
 	hint?: string;
 	accept?: string;
 	maxSize?: number; // in MB
+	disabled?: boolean;
 }
 
 export function IconUpload({
@@ -21,6 +22,7 @@ export function IconUpload({
 	hint = "PNG, JPG, GIF, WebP or SVG. Max 5MB.",
 	accept = "image/*",
 	maxSize = 5,
+	disabled = false,
 }: IconUploadProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -106,19 +108,21 @@ export function IconUpload({
 
 			{/* Drop Zone */}
 			<div
-				onClick={handleClick}
-				onDragEnter={handleDragEnter}
-				onDragLeave={handleDragLeave}
-				onDragOver={handleDragOver}
-				onDrop={handleDrop}
-				className={`relative cursor-pointer rounded-lg border-2 border-dashed transition-all ${
-					isDragging
-						? "border-blue-500 bg-blue-50"
+				onClick={disabled ? undefined : handleClick}
+				onDragEnter={disabled ? undefined : handleDragEnter}
+				onDragLeave={disabled ? undefined : handleDragLeave}
+				onDragOver={disabled ? undefined : handleDragOver}
+				onDrop={disabled ? undefined : handleDrop}
+				className={`relative rounded-lg border-2 border-dashed transition-all ${
+					disabled
+						? "cursor-not-allowed opacity-50 border-gray-300 bg-gray-50"
+						: isDragging
+						? "cursor-pointer border-blue-500 bg-blue-50"
 						: error
-							? "border-red-300 bg-red-50"
-							: displayUrl
-								? "border-gray-300 bg-gray-50"
-								: "border-gray-300 hover:border-gray-400 bg-white"
+						? "cursor-pointer border-red-300 bg-red-50"
+						: displayUrl
+						? "cursor-pointer border-gray-300 bg-gray-50"
+						: "cursor-pointer border-gray-300 hover:border-gray-400 bg-white"
 				}`}
 			>
 				{displayUrl ? (
@@ -165,13 +169,7 @@ export function IconUpload({
 					</div>
 				)}
 
-				<input
-					ref={fileInputRef}
-					type="file"
-					accept={accept}
-					onChange={handleFileChange}
-					className="hidden"
-				/>
+				<input ref={fileInputRef} type="file" accept={accept} onChange={handleFileChange} className="hidden" />
 			</div>
 
 			{/* Error Message */}

@@ -418,7 +418,7 @@ export function CandidateCard({
 				{/* Bubble Badge - Nominee ID */}
 				<div className="absolute top-2.5 left-2.5 z-20">
 					<div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
-						<span className="text-purple-50 text-2xl font-bold">{candidate.nomineeId}</span>
+						<span className="text-purple-50 text-xl font-bold">{candidate.nomineeId}</span>
 					</div>
 				</div>
 

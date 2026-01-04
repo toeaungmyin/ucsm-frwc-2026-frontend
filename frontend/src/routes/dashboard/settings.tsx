@@ -1,6 +1,7 @@
 import { createRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
+import { uploadFileChunked, type UploadProgress } from "../../utils/chunked-upload";
 import {
 	HiCog,
 	HiRefresh,
@@ -40,7 +41,7 @@ function VotingToggle({
 						: "bg-gradient-to-br from-slate-600 via-gray-700 to-zinc-800"
 				}`}
 			/>
-			
+
 			{/* Animated Glow Effect */}
 			{enabled && (
 				<div className="absolute inset-0 opacity-30">
@@ -53,11 +54,7 @@ function VotingToggle({
 				{/* Status Header */}
 				<div className="flex items-center justify-between mb-8">
 					<div className="flex items-center gap-4">
-						<div
-							className={`p-4 rounded-2xl backdrop-blur-sm ${
-								enabled ? "bg-white/20" : "bg-white/10"
-							}`}
-						>
+						<div className={`p-4 rounded-2xl backdrop-blur-sm ${enabled ? "bg-white/20" : "bg-white/10"}`}>
 							{enabled ? (
 								<HiStatusOnline className="h-8 w-8 text-white" />
 							) : (
@@ -71,7 +68,7 @@ function VotingToggle({
 							</p>
 						</div>
 					</div>
-					
+
 					{/* Live Indicator */}
 					<div
 						className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm ${
@@ -120,8 +117,8 @@ function VotingToggle({
 					<div className="mt-6 p-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl flex items-start gap-3">
 						<HiExclamation className="h-5 w-5 text-yellow-300 shrink-0 mt-0.5" />
 						<p className="text-sm text-white/90">
-							<span className="font-semibold">Voting is active.</span> All authenticated voters can now cast their votes. 
-							Remember to disable voting when the event ends.
+							<span className="font-semibold">Voting is active.</span> All authenticated voters can now
+							cast their votes. Remember to disable voting when the event ends.
 						</p>
 					</div>
 				)}
@@ -136,12 +133,14 @@ function PromoVideoUpload({
 	onDelete,
 	isUploading,
 	isDeleting,
+	uploadProgress,
 }: {
 	videoUrl: string | null;
 	onUpload: (file: File) => void;
 	onDelete: () => void;
 	isUploading: boolean;
 	isDeleting: boolean;
+	uploadProgress: UploadProgress | null;
 }) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
@@ -190,11 +189,7 @@ function PromoVideoUpload({
 				{videoUrl ? (
 					<div className="space-y-4">
 						<div className="relative rounded-xl overflow-hidden bg-black aspect-video group">
-							<video
-								src={videoUrl}
-								controls
-								className="w-full h-full object-contain"
-							>
+							<video src={videoUrl} controls className="w-full h-full object-contain">
 								Your browser does not support the video tag.
 							</video>
 							<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
@@ -236,11 +231,13 @@ function PromoVideoUpload({
 						onDrop={handleDrop}
 						onDragOver={handleDragOver}
 						onDragLeave={handleDragLeave}
-						onClick={() => fileInputRef.current?.click()}
-						className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all ${
+						onClick={() => !isUploading && fileInputRef.current?.click()}
+						className={`relative rounded-xl border-2 border-dashed transition-all ${
 							isDragging
-								? "border-purple-500 bg-purple-50"
-								: "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
+								? "border-purple-500 bg-purple-50 cursor-pointer"
+								: isUploading
+								? "border-purple-400 bg-purple-50 cursor-not-allowed"
+								: "border-gray-300 hover:border-purple-400 hover:bg-gray-50 cursor-pointer"
 						}`}
 					>
 						<div className="py-12 px-6 text-center">
@@ -249,8 +246,42 @@ function PromoVideoUpload({
 									<div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
 										<HiRefresh className="h-8 w-8 text-purple-600 animate-spin" />
 									</div>
-									<p className="text-lg font-semibold text-gray-900 mb-1">Uploading...</p>
-									<p className="text-sm text-gray-500">Please wait while your video is being uploaded</p>
+									<p className="text-lg font-semibold text-gray-900 mb-2">
+										{uploadProgress?.status === "finalizing"
+											? "Finalizing upload..."
+											: "Uploading video..."}
+									</p>
+									{uploadProgress && (
+										<div className="space-y-2 mb-4">
+											{/* Progress Bar */}
+											<div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+												<div
+													className="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full transition-all duration-300 ease-out"
+													style={{ width: `${uploadProgress.progress}%` }}
+												/>
+											</div>
+											{/* Progress Text */}
+											<div className="flex items-center justify-between text-sm">
+												<span className="text-gray-600 font-medium">
+													{Math.round(uploadProgress.progress)}%
+												</span>
+												<span className="text-gray-500">
+													{formatBytes(uploadProgress.uploadedSize)} /{" "}
+													{formatBytes(uploadProgress.totalSize)}
+												</span>
+											</div>
+										</div>
+									)}
+									{uploadProgress?.error && (
+										<p className="text-sm text-red-600 mt-2">{uploadProgress.error}</p>
+									)}
+									{!uploadProgress?.error && (
+										<p className="text-sm text-gray-500">
+											{uploadProgress?.status === "finalizing"
+												? "Almost done! Assembling your video..."
+												: "Please wait while your video is being uploaded"}
+										</p>
+									)}
 								</>
 							) : (
 								<>
@@ -260,11 +291,10 @@ function PromoVideoUpload({
 									<p className="text-lg font-semibold text-gray-900 mb-1">
 										{isDragging ? "Drop video here" : "Upload promo video"}
 									</p>
-									<p className="text-sm text-gray-500 mb-4">
-										Drag and drop or click to browse
-									</p>
+									<p className="text-sm text-gray-500 mb-4">Drag and drop or click to browse</p>
 									<p className="text-xs text-gray-400">
-										Supported formats: MP4, WebM, OGG, MOV • Max size: 100MB
+										Supported formats: MP4, WebM, OGG, MOV • Large files supported with progress
+										tracking
 									</p>
 								</>
 							)}
@@ -297,6 +327,15 @@ const formatDateTimeLocal = (dateString: string | null): string => {
 	return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+// Helper to format bytes
+const formatBytes = (bytes: number): string => {
+	if (bytes === 0) return "0 Bytes";
+	const k = 1024;
+	const sizes = ["Bytes", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+};
+
 function SettingsPage() {
 	const queryClient = useQueryClient();
 	// Track local edits separately from server state
@@ -304,8 +343,14 @@ function SettingsPage() {
 		eventName?: string;
 		eventStartTime?: string;
 	}>({});
+	const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
-	const { data: settings, isLoading, isError, refetch } = useQuery({
+	const {
+		data: settings,
+		isLoading,
+		isError,
+		refetch,
+	} = useQuery({
 		queryKey: ["settings"],
 		queryFn: async () => {
 			const response = await settingsApi.getSettings();
@@ -344,9 +389,26 @@ function SettingsPage() {
 	});
 
 	const uploadVideoMutation = useMutation({
-		mutationFn: settingsApi.uploadPromoVideo,
+		mutationFn: async (file: File) => {
+			// Use chunked upload for files larger than 10MB, otherwise use simple upload
+			if (file.size > 10 * 1024 * 1024) {
+				return await uploadFileChunked(file, {
+					onProgress: (progress) => {
+						setUploadProgress(progress);
+					},
+				});
+			} else {
+				// For smaller files, use the simple upload
+				const response = await settingsApi.uploadPromoVideo(file);
+				return response.data;
+			}
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			setUploadProgress(null);
+		},
+		onError: () => {
+			setUploadProgress(null);
 		},
 	});
 
@@ -387,9 +449,7 @@ function SettingsPage() {
 						</div>
 						<h1 className="text-3xl font-bold text-gray-900">Event Control</h1>
 					</div>
-					<p className="text-gray-500 ml-14">
-						Manage voting status and event configuration
-					</p>
+					<p className="text-gray-500 ml-14">Manage voting status and event configuration</p>
 				</div>
 				<button
 					onClick={() => refetch()}
@@ -443,6 +503,7 @@ function SettingsPage() {
 						onDelete={() => deleteVideoMutation.mutate()}
 						isUploading={uploadVideoMutation.isPending}
 						isDeleting={deleteVideoMutation.isPending}
+						uploadProgress={uploadProgress}
 					/>
 
 					{/* Event Configuration Card */}
@@ -462,9 +523,7 @@ function SettingsPage() {
 						<div className="p-6 space-y-6">
 							{/* Event Name */}
 							<div>
-								<label className="block text-sm font-semibold text-gray-700 mb-2">
-									Event Name
-								</label>
+								<label className="block text-sm font-semibold text-gray-700 mb-2">Event Name</label>
 								<input
 									type="text"
 									value={eventName}
@@ -533,7 +592,9 @@ function SettingsPage() {
 							{updateMutation.isSuccess && !hasChanges && (
 								<div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
 									<HiCheck className="h-5 w-5 text-green-600" />
-									<span className="text-sm font-medium text-green-700">Settings saved successfully</span>
+									<span className="text-sm font-medium text-green-700">
+										Settings saved successfully
+									</span>
 								</div>
 							)}
 						</div>
