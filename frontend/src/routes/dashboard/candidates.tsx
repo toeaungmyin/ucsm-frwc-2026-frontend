@@ -1,9 +1,9 @@
 import { createRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { HiPlus, HiRefresh, HiFilter, HiViewGrid, HiViewList } from "react-icons/hi";
+import { HiPlus, HiRefresh, HiFilter, HiViewGrid, HiViewList, HiDownload, HiUpload } from "react-icons/hi";
 import { Route as dashboardRoute } from "../dashboard";
-import { candidatesApi } from "../../api/candidates.api";
+import { candidatesApi, type ImportCandidatesResult } from "../../api/candidates.api";
 import { categoriesApi } from "../../api/categories.api";
 import type { Candidate } from "../../types";
 import {
@@ -13,6 +13,7 @@ import {
 	AddCandidateDialog,
 	EditCandidateDialog,
 	DeleteCandidateDialog,
+	ImportCandidatesDialog,
 	type CandidateFormData,
 } from "../../components/candidates";
 
@@ -25,6 +26,8 @@ function CandidatesPage() {
 	const [deletingCandidate, setDeletingCandidate] = useState<Candidate | null>(null);
 	const [selectedCategory, setSelectedCategory] = useState<string>("");
 	const [viewMode, setViewMode] = useState<ViewMode>("table");
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+	const [importResult, setImportResult] = useState<ImportCandidatesResult | null>(null);
 
 	// Fetch candidates
 	const {
@@ -86,6 +89,43 @@ function CandidatesPage() {
 		},
 	});
 
+	// Export mutation
+	const exportMutation = useMutation({
+		mutationFn: () => candidatesApi.export(),
+		onSuccess: (response) => {
+			const exportData = response.data;
+			const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+				type: "application/json",
+			});
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `candidates-backup-${new Date().toISOString().split("T")[0]}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		},
+	});
+
+	// Import mutation
+	const importMutation = useMutation({
+		mutationFn: (data: {
+			candidates: Array<{
+				id: string;
+				nomineeId: string;
+				name: string;
+				categoryId: string;
+				image?: string | null;
+			}>;
+			skipDuplicates: boolean;
+		}) => candidatesApi.import(data),
+		onSuccess: (response) => {
+			queryClient.invalidateQueries({ queryKey: ["candidates"] });
+			setImportResult(response.data);
+		},
+	});
+
 	const candidates = candidatesData?.data ?? [];
 	const categories = categoriesData?.data ?? [];
 
@@ -128,6 +168,23 @@ function CandidatesPage() {
 		deleteMutation.mutate(deletingCandidate.id);
 	};
 
+	const handleExport = () => {
+		exportMutation.mutate();
+	};
+
+	const handleImport = (
+		candidates: Array<{ id: string; nomineeId: string; name: string; categoryId: string; image?: string | null }>,
+		skipDuplicates: boolean
+	) => {
+		importMutation.mutate({ candidates, skipDuplicates });
+	};
+
+	const handleCloseImport = () => {
+		setIsImportModalOpen(false);
+		setImportResult(null);
+		importMutation.reset();
+	};
+
 	const isLoading = isCandidatesLoading;
 
 	return (
@@ -138,7 +195,7 @@ function CandidatesPage() {
 					<h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
 					<p className="text-gray-500 mt-1">Manage candidates for voting categories</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 flex-wrap">
 					<button
 						onClick={() => refetchCandidates()}
 						className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors"
@@ -146,6 +203,23 @@ function CandidatesPage() {
 						<HiRefresh className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`} />
 						Refresh
 					</button>
+					<button
+						onClick={() => setIsImportModalOpen(true)}
+						className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors"
+					>
+						<HiUpload className="h-5 w-5" />
+						Import
+					</button>
+					{candidates.length > 0 && (
+						<button
+							onClick={handleExport}
+							disabled={exportMutation.isPending}
+							className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-w-[120px] bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors disabled:opacity-50"
+						>
+							<HiDownload className={`h-5 w-5 ${exportMutation.isPending ? "animate-pulse" : ""}`} />
+							Export
+						</button>
+					)}
 					<button
 						onClick={() => setIsCreateModalOpen(true)}
 						className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm"
@@ -299,6 +373,15 @@ function CandidatesPage() {
 				onConfirm={handleDelete}
 				isLoading={deleteMutation.isPending}
 				error={deleteMutation.error}
+			/>
+
+			<ImportCandidatesDialog
+				isOpen={isImportModalOpen}
+				onClose={handleCloseImport}
+				onImport={handleImport}
+				isLoading={importMutation.isPending}
+				error={importMutation.error}
+				result={importResult}
 			/>
 		</div>
 	);

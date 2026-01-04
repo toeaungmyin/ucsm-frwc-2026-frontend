@@ -13,7 +13,7 @@ export interface ChunkedUploadOptions {
 	chunkSize?: number; // Default: 5MB
 }
 
-const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+const DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024; // 5MB
 
 /**
  * Upload a file using chunked upload with progress tracking

@@ -83,4 +83,45 @@ export const candidatesApi = {
 		const response = await api.delete<ApiResponse<{ count: number }>>("/candidates/bulk/all");
 		return response.data;
 	},
+
+	export: async (): Promise<ApiResponse<CandidateExportData>> => {
+		const response = await api.get<ApiResponse<CandidateExportData>>("/candidates/export");
+		return response.data;
+	},
+
+	import: async (data: ImportCandidatesInput): Promise<ApiResponse<ImportCandidatesResult>> => {
+		const response = await api.post<ApiResponse<ImportCandidatesResult>>("/candidates/import", data);
+		return response.data;
+	},
 };
+
+export interface CandidateExportData {
+	exportedAt: string;
+	totalCount: number;
+	candidates: Array<{
+		id: string;
+		nomineeId: string;
+		name: string;
+		categoryId: string;
+		categoryName: string;
+		image: string | null;
+		createdAt: string;
+	}>;
+}
+
+export interface ImportCandidatesInput {
+	candidates: Array<{
+		id: string;
+		nomineeId: string;
+		name: string;
+		categoryId: string;
+		image?: string | null;
+	}>;
+	skipDuplicates?: boolean;
+}
+
+export interface ImportCandidatesResult {
+	imported: number;
+	skipped: number;
+	total: number;
+}

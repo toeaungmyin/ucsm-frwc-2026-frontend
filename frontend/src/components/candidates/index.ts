@@ -5,4 +5,5 @@ export { AddCandidateDialog } from "./add-candidate-dialog";
 export { EditCandidateDialog } from "./edit-candidate-dialog";
 export { DeleteCandidateDialog } from "./delete-candidate-dialog";
 export { CandidatesEmptyState } from "./candidates-empty-state";
+export { ImportCandidatesDialog } from "./import-candidates-dialog";
 
