@@ -21,7 +21,7 @@ export function IconUpload({
 	label = "Icon",
 	hint = "PNG, JPG, GIF, WebP or SVG. Max 5MB.",
 	accept = "image/*",
-	maxSize = 5,
+	maxSize = 10,
 	disabled = false,
 }: IconUploadProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
